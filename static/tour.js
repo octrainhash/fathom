@@ -45,7 +45,7 @@
       h("button", { class: "btn small", onclick: () => { menu.hidden = true; tour(); } }, "Show the tour"),
       h("button", { class: "btn small", onclick: async () => { menu.hidden = true; try { const r = await F.api("/api/support/bundle", { method: "POST" }); F.toast("Saved: " + r.path); if (!F.isServe || !F.isServe()) F.reveal(r.path); } catch (e) { F.toast(e.message); } } }, "Save a problem report"),
       ver);
-    F.api("/api/info").then((i) => { ver.textContent = "Fathom " + i.version + (i.folder ? " · running from " + i.folder : ""); }).catch(() => {});
+    F.api("/api/info").then((i) => { ver.textContent = "Fathom " + i.version + " · created by The Fathomist" + (i.folder ? " · running from " + i.folder : ""); }).catch(() => {});
     const help = h("button", { class: "btn small help-btn", "aria-label": "Help", "aria-haspopup": "menu", onclick: () => { menu.hidden = !menu.hidden; } }, "?");
     F.tip(help, "Help: see the tour again, or save a problem report (a zip of Fathom's log files, no file contents or keys) to your Downloads folder.");
     const right = document.querySelector(".top-right");

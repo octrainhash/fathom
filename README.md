@@ -1,5 +1,7 @@
 # Fathom
 
+*Created by The Fathomist.*
+
 **Website and downloads: https://fathomfile.pages.dev** · License: AGPL-3.0-or-later · Questions: buzznomore401@gmail.com
 
 One Windows app for files: find things inside anything, convert any file to any other supported type, shrink or enlarge files, a big toolbox, a forensics lab, network sync and a drives manager. Every option has a hover tip in plain words.
