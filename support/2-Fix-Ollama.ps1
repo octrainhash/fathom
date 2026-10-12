@@ -10,7 +10,7 @@
 Require-Admin $MyInvocation.MyCommand.Path
 Start-Report 'Fathom-fix-ollama'
 $exe = Find-Ollama
-if (-not $exe) { L 'Ollama is not installed. Run Fathom.bat (or Fathom-Setup.vbs) first.'; Finish-Report; exit }
+if (-not $exe) { L 'Ollama is not installed. (That is normal for the Lite edition.) To add it, run Fathom-Setup.vbs and tick the assistant, or open a Command Prompt as administrator in the Fathom folder and type: Fathom.bat full'; Finish-Report; exit }
 foreach ($n in 'ollama app', 'ollama', 'ollama_llama_server') { Get-Process $n -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Seconds 3
 $o = Join-Path $env:USERPROFILE '.ollama'

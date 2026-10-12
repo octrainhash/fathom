@@ -25,6 +25,7 @@ rem  "Fathom.bat lite" = small install (no LibreOffice, Calibre, 7-Zip or local 
 if /i "%~1"=="lite" type nul > "%APPDIR%\LITE"
 if /i "%~1"=="lite" goto :need_setup
 if /i "%~1"=="full" if exist "%APPDIR%\LITE" del /f /q "%APPDIR%\LITE"
+if /i "%~1"=="full" set "FATHOM_FULL=1"
 if /i "%~1"=="full" goto :need_setup
 rem ---- Already installed, but is it the newest version? If this folder is newer, run the setup once to UPDATE it (nothing is reinstalled that is already there).
 set "WANT="
@@ -132,6 +133,7 @@ set "FATHOM_WIZARD="
 if exist "%DATA%\install-failed.txt" del /f /q "%DATA%\install-failed.txt" >nul 2>&1
 if exist "%APPDIR%\install-choice.txt" for /f "usebackq eol=# tokens=1,* delims==" %%a in ("%APPDIR%\install-choice.txt") do call :take_choice "%%a" "%%b"
 if /i "%~1"=="here" set "FATHOM_DEST="
+if /i "%~1"=="full" set "FATHOM_SKIP="
 if not defined FATHOM_DEST goto :after_d
 if not exist "%APPDIR%\Move-Fathom-to-D.cmd" goto :after_d
 if not exist "%APPDIR%\tools\relocate.ps1" goto :after_d

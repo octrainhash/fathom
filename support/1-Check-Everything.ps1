@@ -27,7 +27,7 @@ foreach ($d in [IO.DriveInfo]::GetDrives()) { if ($d.DriveType -eq 'Fixed' -and 
 L ''
 L '== Ollama'
 $exe = Find-Ollama
-if (-not $exe) { L '  Ollama is not installed.' }
+if (-not $exe) { L '  Ollama is not installed. (Normal for the Lite edition; run Fathom.bat full to add it.)' }
 else {
   L ('  program: ' + $exe)
   try { L ('  version: ' + ((& $exe --version 2>&1) -join ' ')) } catch {}

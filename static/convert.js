@@ -156,7 +156,7 @@
       detail.textContent = "…";
       try {
         const r = await api("/api/formats/" + encodeURIComponent(t.id));
-        detail.replaceChildren(h("b", { text: `${t.label} can become ${r.targets.length} types: ` }), r.targets.map((x) => x.label).join(", ") || "nothing yet");
+        detail.replaceChildren(h("b", { text: `${t.label} can become ${r.targets.length} types: ` }), r.targets.map((x) => x.label).join(", ") || "nothing yet. If this is a Word, Excel, PowerPoint, e-book or RAR type, it needs LibreOffice, Calibre or 7-Zip, which the Lite edition leaves out: run Fathom.bat full to add them.");
       } catch (e) { detail.textContent = e.message; }
     }
     box.addEventListener("toggle", async () => {

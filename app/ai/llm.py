@@ -93,6 +93,14 @@ def _open(url: str, headers: dict, body: dict, timeout: int, provider: str, canc
                 except Exception:
                     log.debug("could not start Ollama", exc_info=True)
             if is_ollama:
+                try:
+                    from app import ollama_keep
+                    missing = not ollama_keep._exe()
+                except Exception:
+                    missing = False
+                if missing:
+                    raise LLMError("The free assistant (Ollama) is not installed on this PC. That is normal for the Lite edition. To add it, run Fathom.bat full "
+                                   "(or run Fathom-Setup.vbs and tick the assistant), or open Assistant > Settings and pick an online AI (Claude, OpenAI and others) with your own key.")
                 raise LLMError(f"Could not reach Ollama at {url.split('/v1')[0]} ({reason}). Is Ollama running? Install it from ollama.com, then run: ollama pull {store.DEFAULTS['models']['ollama']}")
             raise LLMError(f"Could not reach {provider} ({reason}). Are you online?")
     raise LLMError(last or "The service did not answer.")

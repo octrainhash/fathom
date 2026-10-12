@@ -40,6 +40,9 @@ CHOICE = _read_choice()
 SKIP = {x.strip().lower() for x in CHOICE.get("SKIP", "").replace(";", ",").split(",") if x.strip()}   # libreoffice, calibre, 7zip, ollama
 LITE = (os.environ.get("FATHOM_LITE") == "1"
         or (ROOT / "LITE").exists() or CHOICE.get("EDITION", "").lower() == "lite")   # Lite: skip the big office / e-book programs and the local AI
+if os.environ.get("FATHOM_FULL") == "1":   # "Fathom.bat full": add everything, even if an earlier install chose Lite or unticked parts
+    LITE = False
+    SKIP = set()
 if LITE:
     SKIP |= {"libreoffice", "calibre", "7zip", "ollama"}
 
