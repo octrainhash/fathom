@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="token" content="__TOKEN__">
+  <title>Fathom</title>
+  <link rel="icon" href="/static/fathom.png">
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
+  <meta name="theme-color" content="#0e1020">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><img src="/static/fathom.svg" alt=""><span class="word">Fathom</span></div>
+    <nav id="groups" class="groups" role="tablist" aria-label="Tool groups"></nav>
+    <div class="top-right">
+      <span id="engine" class="chip" data-tip="Shows whether Fathom's search engines are loaded. 'Ready' means every feature can start instantly.">Starting…</span>
+      <button id="quickfind" class="ghost" data-tip="Jump to any tool by typing what you want to do. Shortcut: Ctrl+K.">🔍 Ctrl+K</button>
+      <button id="undo" class="ghost" hidden data-tip="Takes back the last renaming, tidy-up or extension fix, putting every file back where it was.">Undo</button>
+      <button id="storage" class="ghost" data-tip="Fathom keeps the pictures and clips of your search matches on this PC so you can look at them again. Click to see how much room they use and delete them. Your own files are never touched.">Saved results</button>
+      <button id="quit" class="ghost" hidden>Quit</button>
+    </div>
+  </header>
+  <nav id="tools" class="tools" role="tablist" aria-label="Tools"></nav>
+
+  <div id="stage" class="stage">
+    <!-- ================= FIND ================= -->
+    <section class="view" data-view="find" id="v-find">
+      <aside class="side" aria-label="Search setup">
+        <section class="block">
+          <h2>Where to look</h2>
+          <div class="sources-host"></div>
+        </section>
+
+        <section class="block">
+          <h2>What to find</h2>
+          <div class="cards kinds" id="kinds" role="group" aria-label="Kind of search">
+            <button type="button" class="choice" id="kind-words" data-p="words" aria-pressed="true"><b>Words &amp; numbers</b></button>
+            <button type="button" class="choice" id="kind-seen" data-p="seen" aria-pressed="false"><b>Words seen</b><span>in pictures &amp; videos</span></button>
+            <button type="button" class="choice" id="kind-spoken" data-p="spoken" aria-pressed="false"><b>Words spoken</b><span>in videos &amp; audio</span></button>
+            <button type="button" class="choice" id="kind-objects" data-p="objects" aria-pressed="false"><b>Objects &amp; scenes</b><span>anywhere</span></button>
+            <button type="button" class="choice" id="kind-objpic" data-p="objpic" aria-pressed="false"><b>Objects</b><span>in pictures</span></button>
+            <button type="button" class="choice" id="kind-objvid" data-p="objvid" aria-pressed="false"><b>Objects</b><span>in videos</span></button>
+          </div>
+          <p id="mode-hint" class="hint"></p>
+          <div id="text-opts" class="opts">
+            <label><input type="checkbox" id="opt-case"> Match case <small>(capitals matter)</small></label>
+            <label><input type="checkbox" id="opt-word"> Whole word only</label>
+            <label><input type="checkbox" id="opt-regex"> Regular expression</label>
+            <label><input type="checkbox" id="opt-ocr" checked> Read text inside pictures &amp; scans (OCR)</label>
+            <label><input type="checkbox" id="opt-hand"> Also read <b>handwriting</b> <small>(messy writing too)</small></label>
+          </div>
+          <div class="lab" style="font-weight:600;margin:12px 0 4px">Look in</div>
+          <div class="opts lookin" id="lookin">
+            <label><input type="checkbox" id="in-documents" checked> Documents &amp; text <small>(PDF, Word, sheets, code…)</small></label>
+            <label><input type="checkbox" id="in-pictures" checked> Pictures &amp; scans</label>
+            <label><input type="checkbox" id="in-videos" checked> Videos</label>
+            <label><input type="checkbox" id="in-audio" checked> Audio</label>
+          </div>
+          <div id="object-opts" class="opts" hidden>
+            <label class="slider">Strictness <output id="strict-out">60%</output>
+              <input type="range" id="opt-strict" min="20" max="95" value="60">
+            </label>
+            <label><input type="checkbox" id="opt-thorough" checked> Look closely <small>(slower, finds small things)</small></label>
+          </div>
+        </section>
+
+        <section class="block">
+          <h2>Folders</h2>
+          <div class="opts">
+            <label><input type="checkbox" id="opt-recursive" checked> Include subfolders</label>
+            <label><input type="checkbox" id="opt-junk" checked> Skip junk folders <small>(.git, node_modules…)</small></label>
+            <label><input type="checkbox" id="opt-cloud"> Include online-only OneDrive files <small>(downloads them)</small></label>
+          </div>
+        </section>
+
+        <details class="block" id="video-block" open hidden>
+          <summary><h2 id="media-title">Video &amp; audio clips</h2></summary>
+          <div class="opts">
+            <label class="num" data-media="video">Check one frame every <input type="number" id="opt-every" min="0.1" max="60" step="0.1" value="1"> seconds</label>
+            <div class="lab" style="font-weight:600" data-media="video">How the clip plays the result</div>
+            <div class="cards" id="clipmode" data-media="video" style="grid-template-columns:1fr;margin-top:0">
+              <button type="button" class="choice" data-v="pause" aria-pressed="false"><b>Stop on the result</b><span>Plays normally, then freezes on the full result.</span></button>
+              <button type="button" class="choice" data-v="result" aria-pressed="true"><b>Slow down on the result</b><span>Normal speed, slow while the result is on screen.</span></button>
+              <button type="button" class="choice" data-v="all" aria-pressed="false"><b>Slow down the whole clip</b><span>Everything in the clip plays slowly.</span></button>
+            </div>
+            <label class="slider" id="slow-row" data-media="video">Slow-motion speed <output id="slow-out">4×</output>
+              <input type="range" id="opt-slow" min="1" max="16" step="0.5" value="4">
+            </label>
+            <label class="num" data-media="video">Stay stopped on the full result for <input type="number" id="opt-hold" min="0" max="60" step="0.5" value="2"> seconds</label>
+            <label class="num" data-media="any">Clip starts <input type="number" id="opt-before" min="0" max="120" step="0.5" value="2"> s before the match</label>
+            <label class="num" data-media="any">and ends <input type="number" id="opt-after" min="0" max="120" step="0.5" value="2"> s after it</label>
+            <div class="clipcalc" id="clipcalc" data-media="video"></div>
+            <label data-media="video"><input type="checkbox" id="opt-changes"> Also mark sudden changes <small>(cuts, flashes, effects)</small></label>
+            <label id="listen-row" data-media="any"><input type="checkbox" id="opt-listen"> Listen for spoken words <small id="listen-note"></small></label>
+            <label class="num" id="model-row" hidden>Speech model
+              <select id="opt-model"><option value="tiny">tiny (fastest)</option><option value="base" selected>base</option><option value="small">small (most accurate)</option></select>
+            </label>
+          </div>
+        </details>
+      </aside>
+
+      <main class="main">
+        <div class="query">
+          <input id="query" type="text" spellcheck="false" autocomplete="off" placeholder="What are you looking for?" aria-label="What to find">
+          <button id="go" class="primary">Search</button>
+        </div>
+        <p id="query-error" class="error-line" role="alert" hidden></p>
+        <section id="progress" class="progress" hidden aria-live="polite">
+          <div class="bar"><i id="bar-fill"></i></div>
+          <div class="progress-text"><strong id="progress-title"></strong><span id="progress-detail"></span></div>
+        </section>
+        <div id="toolbar" class="toolbar" hidden>
+          <div id="chips" class="chips"></div>
+          <input id="filter" type="search" placeholder="Filter these results…" aria-label="Filter results">
+          <label class="switch"><input type="checkbox" id="group"> Group by file</label>
+        </div>
+        <section id="empty" class="empty">
+          <img src="/static/fathom.svg" alt="">
+          <h1 id="empty-title">Find it in anything.</h1>
+          <p id="empty-text">Text, numbers and objects in documents, spreadsheets, PDFs, pictures, screenshots, code, archives and videos. Every match comes with a picture, highlighted and circled. Videos give you a clip and a still of the full result, together.</p>
+        </section>
+        <div id="results" class="results"></div>
+        <details id="errors" class="errors" hidden><summary id="errors-title"></summary><ul id="errors-list"></ul></details>
+      </main>
+    </section>
+  </div>
+
+  <div id="drop" class="drop" hidden><div>Drop files or folders to add them</div></div>
+
+  <div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="Match viewer">
+    <div class="lb-top">
+      <div class="lb-title"><strong id="lb-file"></strong><span id="lb-where"></span></div>
+      <div class="lb-actions">
+        <div id="lb-tabs" class="seg small" hidden>
+          <button id="tab-both" aria-pressed="true"><span>Clip + still</span></button>
+          <button id="tab-clip" aria-pressed="false"><span>Clip</span></button>
+          <button id="tab-shot" aria-pressed="false"><span>Still</span></button>
+        </div>
+        <button id="lb-open" class="btn small">Open file</button>
+        <button id="lb-reveal" class="btn small">Show in folder</button>
+        <a id="lb-save" class="btn small" download>Save picture</a>
+        <button id="lb-close" class="btn small" aria-label="Close">Close ✕</button>
+      </div>
+    </div>
+    <div class="lb-stage" id="lb-stage"></div>
+    <p id="lb-snippet" class="lb-snippet"></p>
+    <button id="lb-prev" class="lb-nav prev" aria-label="Previous match">‹</button>
+    <button id="lb-next" class="lb-nav next" aria-label="Next match">›</button>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+  <div id="tip" class="tip" role="tooltip"></div>
+
+  <script src="/static/core.js"></script>
+  <script src="/static/wait.js"></script>
+  <script src="/static/remote.js"></script>
+  <script src="/static/forms.js"></script>
+  <script src="/static/proof.js"></script>
+  <script src="/static/pages.js"></script>
+  <script src="/static/tips.js"></script>
+  <script src="/static/find.js"></script>
+  <script src="/static/convert.js"></script>
+  <script src="/static/tools.js"></script>
+  <script src="/static/edit.js"></script>
+  <script src="/static/editor.js"></script>
+  <script src="/static/extras.js"></script>
+  <script src="/static/lab.js"></script>
+  <script src="/static/torrent.js"></script>
+  <script src="/static/drives.js"></script>
+  <script src="/static/ai.js"></script>
+  <script src="/static/voice.js"></script>
+  <script src="/static/history.js"></script>
+  <script src="/static/tour.js"></script>
+  <script src="/static/home.js"></script>
+  <script src="/static/boot.js"></script>
+</body>
+</html>

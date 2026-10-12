@@ -1,0 +1,21 @@
+# Nice-to-have extras. If one of these fails to install, Fathom still works without it.
+pillow-heif>=0.18
+av>=11
+faster-whisper>=1.0
+pypandoc_binary>=1.13
+pdf2docx>=0.5.8
+pyzipper>=0.3.6
+py7zr>=0.21
+brotli>=1.1
+tomli-w>=1.0
+rawpy>=0.21
+trimesh>=4.4
+piexif
+paramiko
+boto3
+azure-storage-blob
+pywin32; sys_platform == "win32"
+
+libtorrent
+# offline handwriting reader (also installable from Read handwriting > Install offline reader)
+# transformers, torch, sentencepiece

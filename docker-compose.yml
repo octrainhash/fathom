@@ -1,0 +1,16 @@
+# docker compose up -d      then      docker compose logs fathom      (it prints your private link)
+services:
+  fathom:
+    build: .
+    image: fathom
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8777:8777"      # this computer only. To reach it from your phone/tablet use "8777:8777" AND put it behind HTTPS or a VPN (Tailscale, Cloudflare Tunnel).
+    environment:
+      FATHOM_TOKEN: ""             # optional: choose your own password-like key instead of a generated one
+      # FATHOM_ALLOW_SHELL: "1"   # let the assistant run commands inside the container (off by default in server mode)
+    volumes:
+      - ./files:/data              # the folder Fathom may see and change
+      - fathom-config:/config      # settings, chats, models
+volumes:
+  fathom-config:

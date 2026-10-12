@@ -1,0 +1,262 @@
+INSTALL FATHOM: THE COMPLETE GUIDE
+==================================
+
+Follow this once, top to bottom. It takes about 10 minutes of your attention; the rest is
+waiting for downloads. Everything is free and nothing is sent to us. You choose how Fathom
+is installed and exactly where every part goes: it never moves or deletes anything you did
+not ask for.
+
+
+1. Choose how to get it
+-----------------------
+Don't want to install anything? Open Fathom Online on the website: find words in files,
+merge and split PDFs, convert and shrink pictures, zip, checksums and more, inside your
+browser. Nothing is uploaded. Otherwise there are two ways to install:
+
+* The setup wizard (Windows): download the zip, extract it, and double-click Fathom-
+  Setup.vbs. A normal window with pages opens (Welcome, Where, Programs, Shortcuts,
+  Summary, Installing, Finished). You choose what to install (LibreOffice, Calibre,
+  7-Zip, the free assistant) and which folder or drive gets the Fathom app, its data,
+  and every program one by one. Best if you want to decide where things go. It works
+  without the Microsoft Store, winget or Edge, so it is also the right pick for slimmed-
+  down Windows such as Tiny10 and Tiny11.
+* The direct way (every system): extract the same zip and run Fathom.bat (Windows),
+  Fathom.command (Mac) or ./fathom.sh (Linux). Nothing is asked and nothing is moved:
+  Fathom installs inside the folder you extracted and Windows keeps the programs in
+  their usual places. Best if you just want it to work, or want a portable copy.
+
+Full or Lite? The website offers fathom.zip (Full) and fathom-lite.zip (Lite). Full has
+everything: Word, Excel, PowerPoint and old Office files, e-books, RAR and 100+ more
+formats, plus the free AI assistant that runs on your own PC. It needs about 12 GB free
+and a long first download. Lite is the small version: search, pictures, audio, video, PDF,
+text and data files, all PDF tools, the editor, stamp, sign, scan, print, rename and
+compare. It leaves out LibreOffice, Calibre, 7-Zip and the local AI and needs roughly 2 to
+3 GB (estimates; your real use depends on what you add). In the wizard you can also tick
+or untick every part yourself.
+
+
+2. Which computers work
+-----------------------
+* Yes: Windows 10 and 11, 64-bit. macOS 11 or newer. Linux (Ubuntu, Debian, Fedora,
+  Arch, openSUSE, Raspberry Pi OS 64-bit, Chromebook Linux, WSL).
+* Should work, not tested by the author: every other Windows 10 or 11 build: LTSC, IoT
+  and Server editions, modified or slimmed-down builds (Tiny10, Tiny11, AtlasOS, ReviOS
+  and similar), and Windows on ARM (runs through Windows' own emulation, so slower).
+  Chromebooks work once Linux is turned on in Settings.
+* No, not natively: Windows 7, 8 and 8.1, any 32-bit system, and systems nobody has
+  tested such as FreeBSD. The app needs 64-bit Windows 10 or newer, macOS or a
+  mainstream Linux. These can still use Fathom Online in a browser, or open a Fathom
+  running on another computer (section 5).
+* Phones, tablets and everything else with a browser: use Fathom Online, or open a
+  Fathom that runs on a computer you own (section 5).
+
+You need an internet connection that stays on during setup, an account that can approve
+the administrator question (UAC) on Windows, and free space: Full about 12 GB, Lite about
+3 GB. The wizard shows how much room each drive has and checks before it starts. Do not
+let the PC sleep while it installs.
+
+
+3. Install on Windows
+---------------------
+A. With the setup wizard (you choose what and where)
+
+1. Download fathom.zip (or fathom-lite.zip) from the website. Right-click it > Extract
+   All... > Extract. Do not run anything from inside the zip window.
+2. Open the extracted fathom folder and double-click Fathom-Setup.vbs. If Windows shows
+   a blue SmartScreen box (Fathom is not code-signed yet), click More info, then Run
+   anyway. If nothing happens (some slimmed-down Windows builds have no script host),
+   open the same folder, click in the address bar, type cmd, press Return, and type
+   Fathom.bat setup: it opens the same wizard.
+3. Welcome: choose Everything, Smallest (Lite) or Let me choose each part.
+4. Where should Fathom go? Pick a folder for the Fathom app and a folder for its data
+   (settings, chat history, saved results, Python packages). Any drive works; the window
+   lists your drives and their free space. You can also keep the data in Windows' usual
+   place.
+5. Programs Fathom uses: tick the parts you want (Python is always needed). Then choose:
+   keep them together in one folder, give each program its own folder, or let Windows
+   put them in its usual places. The AI assistant's model, which is several GB, has its
+   own folder too.
+6. Shortcuts: a Desktop icon and a Start-menu entry, if you want them.
+7. Ready to install: a summary of every choice and how much room each drive needs. Click
+   Back to change anything, or Install.
+8. Click Yes when Windows asks for permission. The Installing page shows the step it is
+   on, a live log, and a line that says Please wait, this takes time with the time so
+   far and an approximate time left (a rough guess that gets better as the steps
+   finish). Fathom copies itself to the folders you chose, then installs Python, Windows
+   parts, packages, the programs you ticked, models, a self-test and the shortcuts.
+   Leave the PC on.
+9. Fathom opens by itself when it is ready, and the wizard says Finished. Use the Fathom
+   icon from now on.
+10. Check the version: press ? (top right) and read the first line, for example Fathom
+    1.0.0 - running from folder ....
+
+B. With the direct way (no questions)
+
+1. Extract the zip as above.
+2. Open the extracted fathom folder and double-click Fathom.bat (or right-click it > Run
+   as administrator). Click Yes when Windows asks. SmartScreen: More info, Run anyway.
+3. Wait with the black window open. Everything installs where you extracted it, with the
+   programs in Windows' usual places. Fathom opens by itself when it is ready.
+
+What is written where? With the wizard, exactly where you chose: the app in your app
+folder, the data in your data folder, and each program in its own folder. Windows keeps
+tiny folder links (a few KB) at the usual places for Python, LibreOffice, Calibre, 7-Zip
+and Ollama so every program still finds its files; the AI model is not linked, Ollama is
+told where it is with the OLLAMA_MODELS setting. Old copies are removed only after the new
+copy has been checked. With the direct way, everything stays in the folder you extracted
+plus Windows' normal program folders. Windows itself and its own installer records always
+stay on the drive Windows is on. To undo a choice and install right where the folder is,
+run Fathom.bat here. If an earlier setup had left a program in some other folder, the
+wizard moves it to the folder you choose now and only renames the old one to <name>.moved;
+delete that folder yourself when everything works.
+
+How long does it take? Lite: roughly 10 to 25 minutes. Full: the programs take roughly 20
+to 40 minutes, and the assistant's model (about 3.3 GB) is the long part: at 2.5 MB per
+second it is about 22 minutes, at 10 MB per second about 6 minutes. The model downloads
+only once and can continue if the connection drops (run Fathom.bat repair).
+
+
+4. Updating Fathom
+------------------
+1. Let any running setup finish, or close its window.
+2. Extract the new zip into a new folder. Do not extract over the old one.
+3. Double-click the new Fathom-Setup.vbs (choose the same folders as before) or run the
+   new Fathom.bat. It updates what is already installed. Your history, settings, chats
+   and results are kept.
+4. Prefer one click? Put the new zip in your Downloads folder and double-click
+   support\4-Update-From-Zip.cmd inside your Fathom folder. It copies the new program
+   files over the current ones and finishes the update.
+5. Press ? and check the version. If it still shows the old number, you are starting an
+   old folder: use the Desktop shortcut the setup just remade, or run the new Fathom.bat
+   again.
+
+
+5. Install on Mac, Linux, phone or tablet
+-----------------------------------------
+* macOS: unzip, open Terminal, type bash  (with a space), drag install.sh into the
+  window, press Return. It asks whether to install LibreOffice and the free assistant
+  and where to keep Fathom's data, then sets everything up. Next time double-click
+  Fathom.command. If macOS says the file is from an unidentified developer: System
+  Settings > Privacy & Security > Open Anyway. For no questions, run fathom.sh instead.
+* Linux: unzip fathom.zip && cd fathom && bash install.sh (or ./fathom.sh for no
+  questions). The installer detects apt, dnf, pacman or zypper for the optional extras
+  and asks before using sudo. It adds a Fathom entry to your applications menu.
+* Phone or tablet: Fathom runs on a computer and you open it from the phone. On the
+  computer run Fathom.bat serve --https (Windows) or ./fathom.sh --serve --https, then
+  open the private link it prints on the phone and choose Add to Home Screen. Anyone
+  with that link can see the files Fathom can see, so treat it like a password.
+
+
+6. Switching between Lite and Full later
+----------------------------------------
+* Lite to Full: run Fathom.bat full from the Fathom folder (as administrator), or run
+  Fathom-Setup.vbs again and tick the parts you want. It installs the missing programs
+  and the assistant.
+* Full to Lite for a fresh install: use the Lite zip or untick the extras in the wizard.
+  Programs that are already installed are left alone.
+* Repair or update at any time: Fathom.bat repair (or support\8-Repair-Fathom.cmd). It
+  never reinstalls what is already there.
+
+
+7. If something goes wrong
+--------------------------
+* The window closes immediately or says it cannot find its files: you ran it from inside
+  the zip. Extract first.
+* Double-clicking Fathom-Setup.vbs does nothing: your Windows may have the script host
+  switched off. Run Fathom.bat setup from a Command Prompt in the Fathom folder; it
+  opens the same wizard. Or use the direct way (Fathom.bat).
+* It still shows the old version: you started an old folder or an old shortcut. Run the
+  new Fathom.bat once, then press ? to check.
+* SmartScreen or antivirus complains: choose More info > Run anyway. The setup files are
+  plain text you can read in Notepad. If your antivirus quarantines files, add the
+  Fathom folders to its exclusions and run Fathom.bat repair.
+* Not enough space on a drive you chose: the wizard warns you before it starts. Go Back
+  and choose another drive, or untick some programs.
+* A download failed or stalled: run Fathom.bat repair. Finished parts are not downloaded
+  again.
+* Windows Package Manager (winget) is missing: that is fine. Fathom downloads
+  LibreOffice, Calibre, 7-Zip and Ollama directly from their makers and uses winget only
+  as a second way.
+* The Fathom window does not open on a slimmed-down Windows: if Windows has no web view
+  component, Fathom opens in your normal browser instead.
+* The assistant says the model was not found, or ollama list shows nothing: double-click
+  Fix-Ollama.cmd in the Fathom folder. The usual cause is that Ollama's model folder
+  sits behind a folder link (a Windows "junction"): Ollama 0.40 downloads the model but
+  cannot read it through such a link, so it says "not found" or "bad manifest". Fathom's
+  setup and Fix-Ollama.cmd detect this and point Ollama straight at the real folder with
+  the OLLAMA_MODELS setting, which is the way Ollama documents it. No model or file of
+  yours is deleted: only the small link itself is removed, and the models stay where
+  they are. If Ollama still hides a model, setup tests with a tiny model, switches to
+  another free model that works, and saves ollama-report.txt in the data folder.
+* The Assistant is very slow to answer: the free assistant runs on your own graphics
+  card. Fathom uses the fast qwen3-vl:4b-instruct model (the plain qwen3-vl:4b model is
+  an always-thinking edition that spends minutes thinking before it answers), gives it
+  more working memory (OLLAMA_CONTEXT_LENGTH, so Fathom's long instructions are not cut
+  off), and loads it into the graphics card when Fathom starts. Fathom also reads its
+  long instructions once in the background while it starts and keeps the model loaded
+  for an hour, so the first question starts quickly; wait about three minutes after
+  opening Fathom before your very first message. A message the first time can still take
+  a few minutes on a modest card, and the window then says so: Please wait, this takes
+  time with the time so far and an approximate time left. If it is still slow, update
+  your graphics driver (Ollama's own log says when the AMD driver is too old). In
+  Assistant > Settings the model name should read qwen3-vl:4b-instruct. A bigger
+  graphics card or the qwen3-vl:8b-instruct model trades speed for quality; an online AI
+  (Claude, OpenAI) is fastest of all.
+* The assistant says it could not reach Ollama: Ollama is the free local AI and it must
+  be running. Fathom takes care of it: it starts Ollama by itself when Fathom opens,
+  hidden (no window, only its llama icon in the system tray, near the clock), and closes
+  it again when you close Fathom. If it is ever stopped meanwhile, the assistant starts
+  it by itself the moment you send a message. An Ollama you started yourself is left
+  running when Fathom closes.
+* The Talk button keeps saying "Understanding what you said": the first time, Fathom
+  needs its speech model (about 480 MB). Setup now downloads it for you; if it was
+  skipped, the first Talk downloads it once, which can take a few minutes on a slow
+  connection. The window shows Please wait, this takes time with the time so far while
+  it works. After that, Talk answers in a second or two.
+* Anything slow says so: any action that takes more than a few seconds (conversions,
+  searches, repairs, the assistant's first answer) shows a note at the top of the
+  window: Please wait, this takes time, how long it has taken so far and an approximate
+  time left. Jobs with a progress bar work the time left out from how far they are;
+  other work uses how long the same action took before on this PC, and says "the time
+  left is not known yet" when it cannot tell.
+* Help scripts: the folder support inside the Fathom folder has double-click scripts
+  that check Fathom, repair Ollama, scan for leftovers, download the fast model, time
+  the AI, update Fathom from a new zip and repair the setup. README-SUPPORT.txt explains
+  each one. Each .cmd only starts a .ps1 file you can read in Notepad. None of them
+  deletes your files or models.
+* Still stuck: run support\1-Check-Everything.cmd and send the text file it saves in
+  Downloads. Or open the data folder (type %LOCALAPPDATA%\Fathom in the Explorer address
+  bar) and look at setup.log and bat.log. In the app, ? > Save a problem report gathers
+  them for you. The move to your chosen folders logs to Fathom-move.log in your Temp
+  folder (type %TEMP% in the Explorer address bar).
+
+
+8. Uninstall
+------------
+1. Open the Fathom folder (the one with Fathom.bat) and double-click Uninstall-
+   Fathom.cmd. Click Yes when Windows asks.
+2. It asks two questions: delete Fathom's own data (settings, chat history, saved
+   results, downloaded models), and also remove the programs Fathom installed
+   (LibreOffice, Calibre, 7-Zip, Ollama and its AI model). Answer Y to both for a
+   complete removal. Say N to the second if you use those programs for other things.
+3. It closes Fathom, removes the shortcuts, the data and the programs you chose,
+   wherever you put them (through their normal uninstallers first), and a few seconds
+   after you close the window it deletes the Fathom folder itself. Your own files are
+   never touched.
+4. Python 3.12 is left in place because other programs may use it. Remove it in Settings
+   > Apps if you want it gone.
+5. Fathom does not add itself to Settings > Apps, so use Uninstall-Fathom.cmd (or delete
+   the folders by hand, plus the Desktop and Start-menu shortcuts). On Mac and Linux
+   delete the Fathom folder and the data folder (~/.fathom unless you chose another).
+
+
+9. What was tested
+------------------
+Everything in the app was tested in a Linux test environment, including the search,
+converters, tools and the screens in a real browser. The setup wizard's pages, checks and
+the choices it writes were tested with a simulated window, and its scripts were checked
+for errors, but the wizard window itself, the folder moves, the Ollama install and the
+model download could not be run on a real Windows PC while this was written, and neither
+could the Mac and Linux installer scripts on a real Mac. So the first install on your PC
+is the real test. If a step fails, the logs above tell exactly where.
+
