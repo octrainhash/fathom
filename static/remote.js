@@ -68,7 +68,33 @@
   F.pickPaths = async (kind) => { await F.ready; if (isServe()) return F.browse(kind); return (await api("/api/pick", { method: "POST", body: { kind } })).paths || []; };
   const download = (p) => { const a = document.createElement("a"); a.href = `/api/fs/download?path=${encodeURIComponent(p)}&t=${encodeURIComponent(F.TOKEN)}`; a.download = ""; document.body.append(a); a.click(); a.remove(); };
   const reveal0 = F.reveal, open0 = F.openFile;
-  F.reveal = (p) => (isServe() ? download(p) : reveal0(p));
+  /* In server mode "Show folder" cannot open a window on the other computer, so it lists the folder here: tap a file to download it. */
+  const fileList = (start) => {
+    const list = h("div", { class: "br-list" }), msg = h("span", { class: "muted" }), path = h("input", { type: "text", class: "grow", "aria-label": "Folder path", spellcheck: "false" });
+    let parent = "";
+    const up = h("button", { class: "btn small", onclick: () => go(parent) }, "⬆ Up");
+    const close = h("button", { class: "primary", onclick: () => back.remove() }, "Close");
+    const box = h("div", { class: "modal browse" }, h("h3", { text: "Files on the Fathom computer" }), h("p", { class: "hint", text: "Tap a file to download it to this device." }),
+      h("div", { class: "row", style: "gap:6px;align-items:center;flex-wrap:wrap" }, up, path), list, h("div", { class: "row", style: "gap:8px;align-items:center;margin-top:10px" }, msg, h("span", { style: "flex:1" }), close));
+    const back = h("div", { class: "modal-back", role: "dialog", "aria-modal": "true", style: "position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:200" }, box);
+    box.style.cssText = "background:var(--bg2,#fff);color:inherit;border-radius:16px;padding:18px;width:min(720px,96vw);max-height:90vh;display:flex;flex-direction:column";
+    async function go(p) {
+      msg.textContent = "";
+      try {
+        const r = await api("/api/fs/list", { method: "POST", body: { path: p, show_hidden: false } });
+        parent = r.parent; path.value = r.path; up.disabled = !r.path;
+        list.replaceChildren(...r.entries.map((e) => {
+          const row = h("div", { class: "br-row" + (e.dir ? " dir" : "") }, h("span", { class: "ic", text: e.dir ? "📁" : "📄" }), h("span", { class: "nm", text: e.name }), h("span", { class: "muted", text: fmt(e.size) }));
+          row.onclick = () => { if (e.dir) go(e.path); else { download(e.path); msg.textContent = "Downloading " + e.name + "…"; } };
+          return row;
+        }));
+        if (!r.entries.length) list.append(h("p", { class: "muted", text: "Nothing here." }));
+      } catch (e) { msg.textContent = e.message; }
+    }
+    path.addEventListener("keydown", (e) => { if (e.key === "Enter") go(path.value.trim()); });
+    document.body.append(back); go(start);
+  };
+  F.reveal = (p) => (isServe() ? fileList(p || "") : reveal0(p));
   F.openFile = (p) => (isServe() ? download(p) : open0(p));
   F.downloadFile = download;
 })();

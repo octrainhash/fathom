@@ -1,3 +1,4 @@
+/* Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE). */
 /* Everyday extras: Compare, QR codes, Picture touch-up, Hex view, Redact. */
 (() => {
   "use strict";
@@ -52,7 +53,7 @@
       { id: "pw", type: "text", label: "Wi-Fi password", show: (v) => v.kind === "wifi", tip: "The Wi-Fi password." },
       { id: "sec", type: "select", label: "Security", value: "WPA", show: (v) => v.kind === "wifi", options: [{ v: "WPA", l: "WPA / WPA2 / WPA3" }, { v: "WEP", l: "WEP" }, { v: "nopass", l: "No password" }], tip: "Almost every home network is WPA." },
       { id: "ecc", type: "select", label: "Error correction", value: "M", options: [{ v: "L", l: "Low (smallest)" }, { v: "M", l: "Medium" }, { v: "Q", l: "High" }, { v: "H", l: "Highest (works even if damaged)" }], tip: "Higher: the code still works when scratched or partly covered, but it is denser." },
-      { id: "dark", type: "select", label: "Colour", value: "#000000", options: [{ v: "#000000", l: "Black" }, { v: "#1f2a6b", l: "Navy" }, { v: "#0b6b3a", l: "Green" }, { v: "#7a1f1f", l: "Dark red" }], tip: "Keep it dark on a light background so phones can read it." }], () => preview());
+      { id: "dark", type: "color", label: "Colour", value: "#000000", options: [{ v: "#000000", l: "Black" }, { v: "#1f2a6b", l: "Navy" }, { v: "#0b6b3a", l: "Green" }, { v: "#7a1f1f", l: "Dark red" }], tip: "Keep it dark on a light background so phones can read it." }], () => preview());
     const img = h("img", { alt: "QR code", style: "max-width:260px;background:#fff;border-radius:10px;display:none" });
     const text = (v) => (v.kind === "wifi" ? `WIFI:T:${v.sec};S:${v.ssid.replace(/([\\;,:"])/g, "\\$1")};P:${v.pw.replace(/([\\;,:"])/g, "\\$1")};;` : v.text);
     let seq = 0, timer;
@@ -76,7 +77,7 @@
       { id: "sharpen", type: "range", label: "Sharpen", min: 0, max: 100, value: 0, fmt: (v) => v, tip: "Higher makes edges crisper. Too much looks harsh." },
       { id: "look", type: "select", label: "Look", value: "", options: [{ v: "", l: "As it is" }, { v: "gray", l: "Black and white photo" }, { v: "bw", l: "Pure black and white" }, { v: "sepia", l: "Old brown photo" }, { v: "invert", l: "Negative (inverted)" }], tip: "Changes the colours of the whole picture." },
       { id: "border", type: "number", label: "Border", value: 0, min: 0, max: 400, unit: "pixels", tip: "Adds a frame around the picture. 0 for none." },
-      { id: "border_color", type: "select", label: "Border colour", value: "#ffffff", show: (v) => v.border > 0, options: [{ v: "#ffffff", l: "White" }, { v: "#000000", l: "Black" }, { v: "#f4e3c1", l: "Cream" }, { v: "#7c6cff", l: "Violet" }], tip: "The colour of the frame." },
+      { id: "border_color", type: "color", label: "Border colour", value: "#ffffff", show: (v) => v.border > 0, options: [{ v: "#ffffff", l: "White" }, { v: "#000000", l: "Black" }, { v: "#f4e3c1", l: "Cream" }, { v: "#7c6cff", l: "Violet" }], tip: "The colour of the frame." },
       { id: "round", type: "range", label: "Round the corners", min: 0, max: 100, value: 0, fmt: (v) => (v ? v + "%" : "off"), tip: "Higher: rounder corners. 100 makes a circle on a square picture. Saved as PNG-friendly see-through corners (JPEG pictures get white corners)." }]);
     main.append(h("div", { class: "card-box" }, form.el));
     const lp = F.livePreview({ tool: "touchup", options: () => form.values() }); main.append(lp.el); form.el.addEventListener("input", lp.update); form.el.addEventListener("change", lp.update); form.el.addEventListener("click", () => setTimeout(lp.update, 0));

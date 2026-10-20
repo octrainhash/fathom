@@ -569,3 +569,11 @@ html[data-serve="1"] [data-desktop-only]{display:none!important}
 .refthumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .refthumb button { position: absolute; top: 3px; inset-inline-end: 3px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(0,0,0,.65); color: #fff; font-size: 14px; line-height: 1; cursor: pointer; }
 .refthumb button:hover { background: #d33; }
+
+.colorrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.colorrow .colorpick { width: 44px; height: 34px; padding: 2px; border-radius: 8px; border: 1.5px solid var(--line); background: var(--soft); cursor: pointer; }
+.colorrow .hexbox { width: 92px; font-family: ui-monospace, Consolas, monospace; }
+.swatches { display: inline-flex; gap: 5px; flex-wrap: wrap; }
+.swatch { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 2px solid var(--line); cursor: pointer; transition: transform .12s var(--ease); }
+.swatch:hover { transform: scale(1.15); }
+.swatch[aria-pressed="true"] { border-color: var(--acc); box-shadow: 0 0 0 2px color-mix(in srgb, var(--acc) 40%, transparent); }

@@ -1,3 +1,4 @@
+/* Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE). */
 /* A tiny form builder so every tool's options are built the same way, each with a plain-words tooltip. */
 (() => {
   "use strict";
@@ -38,6 +39,22 @@
         F.tip(i, () => { const o = spec.options.find((x) => String(x.v) === i.value); return [spec.tip, o && o.tip ? "Now: " + o.tip : ""].filter(Boolean).join("\n"); });
         el = h("div", { class: "field" }, lab(spec.label), h("div", { class: "inline" }, i, spec.small ? h("small", { text: spec.small }) : null));
         i.addEventListener("change", changed); get = () => i.value; set = (v) => { i.value = v; };
+      } else if (spec.type === "color") {
+        // a colour picker: preset swatches, the system colour palette, and a hex box (any colour, not a short fixed list)
+        const norm = (c) => { c = String(c || "").trim().replace(/^#?/, "#"); if (/^#[0-9a-f]{3}$/i.test(c)) c = "#" + [...c.slice(1)].map((x) => x + x).join(""); return /^#[0-9a-f]{6}$/i.test(c) ? c.toLowerCase() : null; };
+        const presets = spec.options && spec.options.length ? spec.options : ["#000000", "#1b3a8c", "#1f4e9c", "#0b6b3a", "#1e8449", "#b03a2e", "#d35400", "#7a1f1f", "#4a1d8a", "#444444", "#7f8c8d", "#ffffff"].map((v) => ({ v, l: v }));
+        let cur = norm(spec.value) || "#000000";
+        const pick = h("input", { type: "color", id, value: cur, class: "colorpick", "aria-label": spec.label + " (colour palette)" });
+        const hex = h("input", { type: "text", class: "hexbox", maxlength: 7, value: cur, spellcheck: "false", "aria-label": spec.label + " (hex code)" });
+        const sws = presets.map((o) => [h("button", { type: "button", class: "swatch", style: "background:" + o.v, "aria-label": o.l, tip: o.l, onclick: () => { put(o.v); changed(); } }), o]);
+        const paint = () => sws.forEach(([b, o]) => b.setAttribute("aria-pressed", String(norm(o.v) === cur)));
+        const put = (v, typing) => { const n = norm(v); if (!n) return false; cur = n; pick.value = n; if (!typing) hex.value = n; paint(); return true; };
+        pick.addEventListener("input", () => { put(pick.value); changed(); });
+        hex.addEventListener("input", () => { if (put(hex.value, true)) changed(); });
+        hex.addEventListener("blur", () => { hex.value = cur; });
+        F.tip(pick, spec.tip); F.tip(hex, "Type any colour as a hex code, like #1b3a8c.");
+        el = h("div", { class: "field" }, h("label", { for: id, text: spec.label }), h("div", { class: "colorrow" }, pick, hex, h("span", { class: "swatches" }, sws.map(([b]) => b)))); paint();
+        get = () => cur; set = (v) => { put(v); };
       } else if (spec.type === "choice") {
         let cur = spec.value ?? spec.options[0].v; const btns = [];
         const paint = () => btns.forEach(([b, o]) => b.setAttribute("aria-pressed", String(o.v) === String(cur)));

@@ -1,3 +1,4 @@
+/* Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE). */
 /* Edit group extras: Find & replace (any file), Stamp, Sign, Print (digital to paper), Photocopy (paper to paper). */
 (() => {
   "use strict";
@@ -126,7 +127,7 @@
         // type
         const tName = h("input", { type: "text", placeholder: "Type your name", tip: "Your name, written in a handwriting style." });
         const tf = F.form([{ id: "font", type: "choice", label: "Style", value: "script", options: [{ v: "script", l: "Handwriting", tip: "A flowing handwriting style." }, { v: "formal", l: "Formal", tip: "An elegant, classic writing style." }, { v: "casual", l: "Casual", tip: "A quick, informal pen style." }, { v: "brush", l: "Brush", tip: "A bold brush-pen style." }] },
-          { id: "color", type: "select", label: "Ink colour", value: "#1b3a8c", options: [{ v: "#1b3a8c", l: "Pen blue" }, { v: "#111111", l: "Black" }, { v: "#4a1d8a", l: "Purple" }, { v: "#0b6b3a", l: "Green" }], tip: "The colour of the writing." }], () => typed());
+          { id: "color", type: "color", label: "Ink colour", value: "#1b3a8c", options: [{ v: "#1b3a8c", l: "Pen blue" }, { v: "#111111", l: "Black" }, { v: "#4a1d8a", l: "Purple" }, { v: "#0b6b3a", l: "Green" }], tip: "The colour of the writing." }], () => typed());
         const typed = () => { if (tName.value.trim()) { const v = tf.values(); rerender({ render: { text: tName.value, font: v.font, style: "plain", color: v.color, bold: false, size: 220 } }); } };
         tName.addEventListener("input", typed);
         // draw
@@ -155,7 +156,7 @@
         tText.value = "APPROVED\n{date}";
         const tf = F.form([{ id: "style", type: "select", label: "Look", value: "box", options: [{ v: "box", l: "Box" }, { v: "double", l: "Double box" }, { v: "round", l: "Rounded" }, { v: "banner", l: "Solid banner" }, { v: "underline", l: "Underlined" }, { v: "plain", l: "Just the words" }], tip: "The frame around the words." },
           { id: "font", type: "select", label: "Letters", value: "sans", options: [{ v: "sans", l: "Plain" }, { v: "serif", l: "Classic" }, { v: "mono", l: "Typewriter" }, { v: "script", l: "Handwriting" }], tip: "The style of the letters." },
-          { id: "color", type: "select", label: "Colour", value: "#1e8449", options: [{ v: "#1e8449", l: "Green" }, { v: "#b03a2e", l: "Red" }, { v: "#1f4e9c", l: "Blue" }, { v: "#d35400", l: "Orange" }, { v: "#444444", l: "Dark grey" }, { v: "#7f8c8d", l: "Grey" }, { v: "#111111", l: "Black" }], tip: "The colour of the ink." },
+          { id: "color", type: "color", label: "Colour", value: "#1e8449", options: [{ v: "#1e8449", l: "Green" }, { v: "#b03a2e", l: "Red" }, { v: "#1f4e9c", l: "Blue" }, { v: "#d35400", l: "Orange" }, { v: "#444444", l: "Dark grey" }, { v: "#7f8c8d", l: "Grey" }, { v: "#111111", l: "Black" }], tip: "The colour of the ink." },
           { id: "worn", type: "check", label: "Worn, inked look", value: false, tip: "On: tiny gaps like a real rubber stamp.\nOff: perfectly clean." }], () => typed());
         const typed = () => { const v = tf.values(); rerender({ render: { text: tText.value || "STAMP", style: v.style, font: v.font, color: v.color, worn: v.worn, size: 160 } }); };
         tText.addEventListener("input", typed);

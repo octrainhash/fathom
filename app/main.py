@@ -763,6 +763,40 @@ def t_exif(b: OpBody):
     return filetools3.exif_edit_start(b.paths, b.recursive, bool(o.get("remove_gps")), o.get("date", ""), o.get("artist", ""), o.get("copyright", ""), o.get("description", ""), b.output)
 
 
+@_post("/api/tools/nup")
+def t_nup(b: OpBody):
+    from app import pdfplus
+    return pdfplus.nup_start(b.paths, int(b.number or 0), bool(b.flag), b.mode or "same", False, b.output)
+
+
+@_post("/api/tools/pdfprops")
+def t_pdfprops(b: OpBody):
+    from app import pdfplus
+    return pdfplus.props_start(b.paths, b.options or {}, b.text, bool(b.flag), b.output)
+
+
+@_post("/api/tools/pdfprops-view")
+def t_pdfprops_view(b: OpBody):
+    from app import pdfplus
+    if not b.paths:
+        raise service.UserError("Add a PDF first.")
+    return pdfplus.props_view(b.paths)
+
+
+@_post("/api/tools/pdfform-fields")
+def t_pdfform_fields(b: OpBody):
+    from app import pdfplus
+    if not b.paths:
+        raise service.UserError("Add a PDF first.")
+    return pdfplus.form_fields(b.paths)
+
+
+@_post("/api/tools/pdfform-fill")
+def t_pdfform_fill(b: OpBody):
+    from app import pdfplus
+    return pdfplus.form_fill_start(b.paths, b.text, bool(b.flag), b.output)
+
+
 @_post("/api/tools/arrange")
 def t_arrange(b: OpBody):
     return filetools3.pdf_arrange_start(b.paths, b.text, int(b.number or 0), b.output)
