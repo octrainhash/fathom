@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Search inside videos. Every match gets a timestamp, a highlighted+circled snapshot and a slow-motion clip."""
 from __future__ import annotations
 
@@ -331,6 +332,13 @@ def _gray_small(frame: np.ndarray) -> np.ndarray:
 def _scan_frame(ctx, frame: np.ndarray):
     """-> (boxes, snippet, score) for the words or the object being searched."""
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    if ctx.opts.mode == "object" and ctx.opts.refs:
+        from app.reference import find as find_reference
+
+        found = find_reference(ctx.ref_kind, Image.fromarray(rgb), ctx.ref_objs, ctx.opts.strictness, thorough=False)
+        if not found:
+            return [], [], 0.0
+        return [f["bbox"] for f in found], ["", "reference picture", ""], float(max(f["score"] for f in found))
     if ctx.opts.mode == "object":
         from app.detect import find_objects
 

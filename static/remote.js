@@ -1,3 +1,4 @@
+/* Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE). */
 /* Server mode: when Fathom runs on another computer (or in Docker) and you use it from a phone, tablet or browser,
    "Add files" browses the server's folders, files from THIS device are uploaded, and "Show/Open" downloads. */
 (() => {
@@ -24,7 +25,7 @@
   };
 
   F.browse = (kind) => new Promise((resolve) => {
-    const wantDir = kind === "folder" || kind === "outfolder", multi = kind === "files";
+    const wantDir = kind === "folder" || kind === "outfolder", multi = kind === "files" || kind === "pictures";
     const chosen = new Set(); let cur = F.load("browse.path", ""), showHidden = false;
     const path = h("input", { type: "text", class: "grow", "aria-label": "Folder path", spellcheck: "false" }); F.tip(path, "The folder you are looking at. Type or paste a path and press Enter to go there.");
     const list = h("div", { class: "br-list" }), msg = h("span", { class: "muted" });

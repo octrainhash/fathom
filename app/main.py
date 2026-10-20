@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Fathom's local web server. The window is a view of this; nothing leaves your PC."""
 from __future__ import annotations
 
@@ -814,6 +815,32 @@ def preview_page(path: str, page: int = 0, t: str = "", size: int = 900):
     except Exception as e:
         raise HTTPException(415, str(e)[:200])
     return Response(data, media_type="image/png", headers={"Cache-Control": "private, max-age=300", "X-Pages": str(meta.get("pages", 1)), "X-Size": f"{meta.get('shown_w', 0)}x{meta.get('shown_h', 0)}", "Access-Control-Expose-Headers": "X-Pages, X-Size"})
+
+
+@app.post("/api/ref/upload", dependencies=[Depends(guard)])
+async def ref_upload(request: Request, name: str = "reference.png"):
+    """A reference picture that was dropped or pasted into the window (the browser cannot give us its path): saved in Fathom's own folder."""
+    import io
+    import uuid
+
+    from PIL import Image, ImageOps
+
+    data = await request.body()
+    if not data or len(data) > 60 * 1024 * 1024:
+        raise service.UserError("That picture is empty or too big (60 MB at most).")
+    try:
+        im = ImageOps.exif_transpose(Image.open(io.BytesIO(data)))
+        im.load()
+    except Exception:
+        raise service.UserError("That is not a picture Fathom can read.")
+    folder = data_root() / "references"
+    folder.mkdir(parents=True, exist_ok=True)
+    for old in sorted(folder.glob("*"), key=lambda q: q.stat().st_mtime)[:-60]:  # keep the folder small
+        old.unlink(missing_ok=True)
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "_", Path(name).stem)[:40] or "reference"
+    out = folder / f"{stem}-{uuid.uuid4().hex[:6]}.png"
+    im.convert("RGBA" if im.mode in ("RGBA", "LA", "P") else "RGB").save(out, "PNG")
+    return {"path": str(out)}
 
 
 @app.get("/api/thumb")

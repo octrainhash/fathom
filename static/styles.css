@@ -558,3 +558,14 @@ html[data-serve="1"] [data-desktop-only]{display:none!important}
 .waitbar span { font-size: 13px; color: var(--muted); }
 .waitbar .spin { flex: none; }
 .waitnote { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+/* reference pictures (Find > Match a picture) */
+.refbox { margin-top: 10px; }
+.refdrop { border: 1.5px dashed var(--line); border-radius: 12px; padding: 10px; display: grid; gap: 8px; transition: .18s var(--ease); }
+.refdrop.over, .refdrop:focus-visible { border-color: var(--acc); background: color-mix(in srgb, var(--acc) 10%, transparent); outline: none; }
+.refthumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
+.refthumbs:empty { display: none; }
+.refthumb { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--soft); }
+.refthumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.refthumb button { position: absolute; top: 3px; inset-inline-end: 3px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(0,0,0,.65); color: #fff; font-size: 14px; line-height: 1; cursor: pointer; }
+.refthumb button:hover { background: #d33; }

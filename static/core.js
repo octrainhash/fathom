@@ -1,3 +1,4 @@
+/* Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE). */
 /* Fathom core: helpers, tooltips, the shared file tray, the "where to save" chooser, search-and-pick lists, background jobs. */
 (() => {
   "use strict";
@@ -117,11 +118,13 @@
       ul.replaceChildren();
       const move = (i, d) => { const a = F.state.sources; const j = i + d; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; renderSources(); };
       F.state.sources.forEach((p, i) => {
-        const isFolder = !/\.[A-Za-z0-9]{1,8}$/.test(F.baseName(p));
+        const isLink = /^https?:\/\//i.test(p);
+        const isFolder = !isLink && !/\.[A-Za-z0-9]{1,8}$/.test(F.baseName(p));
+        const shown = isLink ? p.replace(/^https?:\/\/(www\.)?/i, "") : F.baseName(p);
         ul.append(h("li", { title: p },
-          h("span", { text: isFolder ? "📁" : "📄" }),
-          h("span", { class: "name", text: F.baseName(p) }),
-          !isFolder && F.editFile ? h("button", { class: "mv", tip: "Open this file in the editor and change what is inside it.", "aria-label": `Edit ${F.baseName(p)}`, onclick: () => F.editFile(p) }, "✏️") : null,
+          h("span", { text: isLink ? "🔗" : isFolder ? "📁" : "📄" }),
+          h("span", { class: "name", text: shown }),
+          !isFolder && !isLink && F.editFile ? h("button", { class: "mv", tip: "Open this file in the editor and change what is inside it.", "aria-label": `Edit ${F.baseName(p)}`, onclick: () => F.editFile(p) }, "✏️") : null,
           F.state.sources.length > 1 ? h("button", { class: "mv", tip: "Move this up. The order matters when you merge files.", "aria-label": "Move up", onclick: () => move(i, -1) }, "▲") : null,
           F.state.sources.length > 1 ? h("button", { class: "mv", tip: "Move this down.", "aria-label": "Move down", onclick: () => move(i, 1) }, "▼") : null,
           h("button", { class: "x", tip: "Take this out of the list. The real file is not touched.", "aria-label": `Remove ${F.baseName(p)}`, onclick: () => { F.state.sources.splice(i, 1); renderSources(); F.onSourcesChanged && F.onSourcesChanged(); } }, "×")));
@@ -130,15 +133,28 @@
       clear.hidden = F.state.sources.length < 2;
     }
   }
-  F.mountSources = (host, hint) => {
+  F.mountSources = (host, hint, extra = {}) => {
     const ul = h("ul", { class: "sources" });
     const empty = h("div", { class: "dropzone", text: hint || "Add as many files and folders as you like, or drag them into this window." });
     const clear = h("button", { class: "link", hidden: true, tip: "Empties the list. Your real files are not touched.", onclick: () => { F.state.sources = []; renderSources(); F.onSourcesChanged && F.onSourcesChanged(); } }, "Remove all");
+    let linkRow = null;
+    if (extra.links) {
+      const box = h("input", { type: "url", placeholder: "Paste a video or picture link, then press Enter", "aria-label": "Link", spellcheck: "false", style: "flex:1;min-width:0" });
+      const go = () => {
+        const urls = box.value.split(/\s+/).filter((u) => /^https?:\/\//i.test(u));
+        if (!urls.length) { F.toast("Paste a link that starts with http:// or https://"); return; }
+        F.addPaths(urls); box.value = ""; linkRow.hidden = true;
+      };
+      box.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+      linkRow = h("div", { class: "row", hidden: true }, box, h("button", { class: "btn small", onclick: go }, "Add"));
+      F.tip(box, "A link to a video (YouTube and most video sites) or straight to a video or picture file. Fathom downloads it to this computer and searches it. Several links can be pasted at once, separated by spaces.");
+    }
     host.append(
       h("div", { class: "row" },
         h("button", { class: "btn fill", tip: "Choose one or more files from your PC. You can pick as many as you like.", onclick: () => pick("files") }, "Add files…"),
-        h("button", { class: "btn fill", tip: "Choose a whole folder. Everything inside it (and its subfolders) is included.", onclick: () => pick("folder") }, "Add folder…")),
-      ul, empty, clear);
+        h("button", { class: "btn fill", tip: "Choose a whole folder. Everything inside it (and its subfolders) is included.", onclick: () => pick("folder") }, "Add folder…"),
+        extra.links ? h("button", { class: "btn fill", tip: "Search a video from a web link instead of a file on your PC.", onclick: () => { linkRow.hidden = !linkRow.hidden; if (!linkRow.hidden) linkRow.querySelector("input").focus(); } }, "Add link…") : null),
+      linkRow, ul, empty, clear);
     host._parts = { ul, empty, clear };
     hosts.add(host); renderSources();
   };

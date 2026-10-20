@@ -18,6 +18,7 @@ One Windows app for files: find things inside anything, convert any file to any 
 
 ## Any device, any system
 * **macOS / Linux**: `Fathom.command` (macOS) or `./fathom.sh` (Linux and macOS). The first run finds Python 3.12 or fetches it with `uv`, creates a private environment in `~/.fathom`, installs everything, and opens Fathom (in its own window if the system's window libraries are present, otherwise in your browser). On Linux it also adds a menu entry. Windows-only tools (WIA/TWAIN scanners, NTFS/ReFS drive tools, hidden NTFS streams) are not available there; the rest is.
+* **Match a picture / video links:** in Find, "Match a picture" takes reference pictures and finds that person or thing in files and videos; "Add link…" fetches a video from a web link (YouTube-style pages need `yt-dlp`, installed with the optional packages).
 * **Server mode** (phones, tablets, other computers): `./fathom.sh --serve` (Windows: `Fathom.bat serve`; or `python launch.py --serve`). It prints a private link ending in `?token=…`; open it on any device on your network. Add `--https` for a self-made certificate (browsers only allow the microphone on https), `--port 9000` to change the port, `--host 127.0.0.1` to stay local. The key is kept in `~/.fathom/serve-token.txt` (or set `FATHOM_TOKEN`) so the link stays the same. In this mode *Add files* browses the folders of the computer running Fathom and **Upload from this device** sends files from your phone; *Show/Open* downloads the file. The assistant cannot run shell commands or Python unless you start with `FATHOM_ALLOW_SHELL=1`. `FATHOM_ROOTS=/path1:/path2` limits which folders can be browsed.
 * **Docker**: `docker compose up -d`, then `docker compose logs fathom` for the link. Put your files in `./files` (shown as `/data`). Add `--build-arg WITH_OFFICE=1` to the build for LibreOffice. Safe default: only reachable from the same machine; to reach it from a phone change the port line in `docker-compose.yml`, and put it behind a VPN (Tailscale) or HTTPS.
 * **Away from home**: do not forward a router port. Use Tailscale or a Cloudflare Tunnel with access control.
@@ -133,3 +134,7 @@ Search also reads inside files that used to be skipped: old Office files (.doc .
 
 ## Updating Fathom (important)
 Extract the new zip anywhere and run its `Fathom-Setup.vbs` or `Fathom.bat`. Fathom always re-points its Desktop and Start-menu shortcuts to the folder you ran, so the newest copy is the one that starts. Click **?** in the app: the last line of the menu shows the version and the folder that is running. If that is not the folder you expect, you are running an old copy.
+
+---
+
+**Copyright (C) 2026 The Fathomist.** Free software under AGPL-3.0-or-later with attribution and name terms; see [LICENSE](LICENSE) and [NOTICE](NOTICE).

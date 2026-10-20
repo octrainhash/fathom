@@ -1,5 +1,6 @@
 # Nice-to-have extras. If one of these fails to install, Fathom still works without it.
 pillow-heif>=0.18
+yt-dlp
 av>=11
 faster-whisper>=1.0
 pypandoc_binary>=1.13

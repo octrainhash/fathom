@@ -12,6 +12,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/i18n.js"></script>
 </head>
 <body>
   <header class="top">
@@ -45,6 +46,7 @@
             <button type="button" class="choice" id="kind-objects" data-p="objects" aria-pressed="false"><b>Objects &amp; scenes</b><span>anywhere</span></button>
             <button type="button" class="choice" id="kind-objpic" data-p="objpic" aria-pressed="false"><b>Objects</b><span>in pictures</span></button>
             <button type="button" class="choice" id="kind-objvid" data-p="objvid" aria-pressed="false"><b>Objects</b><span>in videos</span></button>
+            <button type="button" class="choice" id="kind-ref" data-p="ref" aria-pressed="false"><b>Match a picture</b><span>find it anywhere</span></button>
           </div>
           <p id="mode-hint" class="hint"></p>
           <div id="text-opts" class="opts">
@@ -60,6 +62,21 @@
             <label><input type="checkbox" id="in-pictures" checked> Pictures &amp; scans</label>
             <label><input type="checkbox" id="in-videos" checked> Videos</label>
             <label><input type="checkbox" id="in-audio" checked> Audio</label>
+          </div>
+          <div id="ref-opts" class="refbox" hidden>
+            <div class="refdrop" id="ref-drop" tabindex="0" role="button" aria-label="Add reference pictures">
+              <div id="ref-thumbs" class="refthumbs"></div>
+              <p class="hint" id="ref-empty">Add one or more pictures of what you want to find: a person, a product, a logo, a place. Drop pictures here, paste one (Ctrl+V), or press Add.</p>
+              <div class="row"><button type="button" class="btn small" id="ref-add" data-tip="Choose reference pictures from this PC. Several pictures of the same thing make the search smarter: different angles, lighting and sizes.">Add pictures…</button> <button type="button" class="btn small" id="ref-clear" hidden>Clear</button></div>
+            </div>
+            <div class="lab" style="font-weight:600;margin:12px 0 4px">What counts as a match</div>
+            <div class="cards kinds" id="refkinds" role="group" aria-label="What counts as a match">
+              <button type="button" class="choice" data-k="auto" aria-pressed="true" data-tip="Fathom decides: faces filling the picture are searched as a person, anything else as a look-alike."><b>Automatic</b><span>recommended</span></button>
+              <button type="button" class="choice" data-k="like" aria-pressed="false" data-tip="Finds things that look like your picture: the same kind of object, animal or scene, in any photo, angle or size."><b>Looks like it</b><span>same kind of thing</span></button>
+              <button type="button" class="choice" data-k="same" aria-pressed="false" data-tip="Finds this exact item, even small, tilted or half hidden: a logo, product, poster, painting or object. Needs no download."><b>This exact item</b><span>logo, product, art</span></button>
+              <button type="button" class="choice" data-k="person" aria-pressed="false" data-tip="Finds the same person's face in other photos and video frames, even with a different background, size or lighting. Runs on this PC; nothing is uploaded or stored."><b>Same person</b><span>face match</span></button>
+            </div>
+            <p class="hint" id="ref-kind-hint"></p>
           </div>
           <div id="object-opts" class="opts" hidden>
             <label class="slider">Strictness <output id="strict-out">60%</output>

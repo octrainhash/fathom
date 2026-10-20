@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """The app's actions as plain functions (main.py only wires them to web routes)."""
 from __future__ import annotations
 
@@ -32,15 +33,21 @@ def create_search(query: str, paths: list[str], options: dict) -> dict:
     if not opts.query:
         raise UserError("Type what to look for first.")
     if not paths:
-        raise UserError("Add at least one file or folder to search.")
+        raise UserError("Add at least one file, folder or link to search.")
     if opts.mode == "text" or opts.media_text or opts.media_speech:
         try:
             compile_query(opts.query, opts.case_sensitive, opts.use_regex, opts.whole_word)
         except ValueError as exc:
             if opts.mode == "text":
                 raise UserError(str(exc))
-    if (opts.mode == "object" or opts.media_object) and not (_has("onnxruntime") and _has("tokenizers")):
+    if opts.refs:
+        missing = [r for r in opts.refs if not Path(r).is_file()]
+        if len(missing) == len(opts.refs):
+            raise UserError("The reference picture could not be found. Add it again.")
+    if (opts.mode == "object" or opts.media_object) and not opts.refs and not (_has("onnxruntime") and _has("tokenizers")):
         raise UserError("Object search is not installed. Run Fathom.bat again to finish setup.")
+    if opts.refs and opts.ref_kind == "like" and not (_has("onnxruntime") and _has("tokenizers")):
+        raise UserError("Picture matching is not installed. Run Fathom.bat again to finish setup, or choose “This exact item”.")
     job = start_job(opts, list(dict.fromkeys(paths)))
     return {"job": job.id}
 
@@ -68,6 +75,10 @@ def capabilities() -> dict:
         "pdf": _has("pymupdf") or _has("fitz"),
         "objects": _has("onnxruntime") and _has("tokenizers") and _has("huggingface_hub"),
         "objects_model_ready": models_ready(),
+        "faces": __import__("app.reference", fromlist=["x"]).faces_supported(),
+        "faces_model_ready": __import__("app.reference", fromlist=["x"]).face_models_ready(),
+        "links": True,
+        "links_page": _has("yt_dlp"),
         "speech": _has("faster_whisper"),
         "heic": extract.HEIF,
     }

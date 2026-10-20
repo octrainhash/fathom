@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Runs searches in the background: finds the files, searches them in parallel, streams results to the UI."""
 from __future__ import annotations
 
@@ -85,7 +86,35 @@ def _run(job: Job) -> None:
     try:
         ctx = Context(job.opts, job.out_dir, f"/media/{job.id}", job.add_result, job.add_error, job.cancel, status=job.set_message)
         job.status = "scanning"
-        if job.opts.mode == "object":
+        if any(x.lower().startswith(("http://", "https://")) for x in job.sources):
+            from app import links
+
+            job.message = "Fetching your links…"
+            job.sources = links.resolve(job.sources, job.set_message, job.cancel, job.add_error)
+            if not job.sources:
+                job.status = "failed"
+                job.message = "None of the links could be downloaded."
+                return
+        if job.opts.mode == "object" and job.opts.refs:
+            from app import reference
+
+            job.message = "Reading your reference pictures…"
+            try:
+                ctx.ref_objs, notes, ctx.ref_kind = reference.prepare(job.opts.ref_kind, job.opts.refs, progress=job.set_message)
+            except ValueError as exc:
+                job.status = "failed"
+                job.message = str(exc)
+                return
+            for n in notes:
+                job.add_error("Reference pictures", n)
+            if ctx.ref_kind == "like":
+                from app.detect import model_paths, models_ready
+
+                if not models_ready():
+                    job.message = "Downloading the picture-matching model (about 600 MB, one time only)…"
+                    model_paths(download=True)
+            job.message = {"person": "Looking for the same face…", "same": "Looking for the same item…", "like": "Looking for things like your reference…"}[ctx.ref_kind]
+        elif job.opts.mode == "object":
             from app.detect import model_paths, models_ready
 
             if not models_ready():
@@ -93,7 +122,7 @@ def _run(job: Job) -> None:
                 model_paths(download=True)
                 job.message = ""
         files: list[tuple[Path, str]] = []
-        for item in discover(job.sources, job.opts.recursive, job.opts.skip_junk, job.opts.include_cloud, [data_root()], job.add_skip, job.cancel.is_set):
+        for item in discover(job.sources, job.opts.recursive, job.opts.skip_junk, job.opts.include_cloud, [c for c in data_root().iterdir() if c.name != "links"], job.add_skip, job.cancel.is_set):
             files.append(item)
             job.files_found = len(files)
         job.files_total = len(files)

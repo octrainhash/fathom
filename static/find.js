@@ -1,11 +1,12 @@
+/* Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE). */
 /* Find: words, numbers and objects in any file, with highlighted pictures and slow-motion clips. */
 (() => {
   "use strict";
   const F = window.Fathom, $ = F.$, h = F.h, api = F.api;
-  const state = { mode: "text", preset: "words", clipmode: "result", jobId: null, running: false, next: 0, results: [], filter: "all", text: "", group: false, caps: null, groups: new Map() };
+  const state = { refs: [], refkind: "auto", mode: "text", preset: "words", clipmode: "result", jobId: null, running: false, next: 0, results: [], filter: "all", text: "", group: false, caps: null, groups: new Map() };
   const KIND_LABEL = { text: "Text", object: "Object", video: "Video", speech: "Spoken", change: "Change" };
 
-  F.mountSources($("v-find").querySelector(".sources-host"));
+  F.mountSources($("v-find").querySelector(".sources-host"), "", { links: true });
 
   // ---------- what to find
   const PRESETS = {
@@ -14,6 +15,7 @@
     spoken:  { mode: "text",   only: ["videos", "audio"], hint: "Finds words that are SAID in videos and audio recordings, like searching a transcript. Every match gives you the moment, with a clip for videos.", ph: "Words someone says, e.g. refund, birthday, next quarter" },
     objects: { mode: "object", only: [], hint: "Finds the actual thing, not the word. “butterfly” finds butterflies in pictures, PDF pages and videos, and ignores the written word.", ph: "What should I look for?  e.g. butterfly, red car, fire" },
     objpic:  { mode: "object", only: ["pictures"], hint: "Finds the actual thing in pictures, photos and scanned pages only. “dog” finds dogs, not the word.", ph: "What should I look for in pictures?  e.g. dog, bicycle, sunset" },
+    ref:     { mode: "object", only: [], hint: "Show Fathom a picture of what to find, and it finds it in your files: pictures, PDF pages, scans and videos. It does not look for copies of your picture; it finds that person, product, logo or thing wherever it appears, in other photos, sizes and angles. Every match is circled and pointed out.", ph: "" },
     objvid:  { mode: "object", only: ["videos"], hint: "Finds the actual thing in videos only. Every match gives you a still and a slow-motion clip of the moment it appears.", ph: "What should I look for in videos?  e.g. person in a red coat, fire" },
   };
   const KINDS = ["documents", "pictures", "videos", "audio"];
@@ -26,8 +28,11 @@
     if (!keepFilter) for (const k of KINDS) $("in-" + k).checked = !P.only.length || P.only.includes(k);
     $("text-opts").hidden = P.mode !== "text";
     $("object-opts").hidden = P.mode !== "object";
+    $("ref-opts").hidden = id !== "ref";
+    $("query").hidden = id === "ref"; $("query").setAttribute("aria-hidden", id === "ref");
+    if (id === "ref") syncRefs();
     let hint = P.hint;
-    if (P.mode === "object" && state.caps && !state.caps.objects_model_ready) hint += " The first object search downloads a 600 MB model (needs internet, once).";
+    if (P.mode === "object" && id !== "ref" && state.caps && !state.caps.objects_model_ready) hint += " The first object search downloads a 600 MB model (needs internet, once).";
     if (id === "spoken" && state.caps && !state.caps.speech) hint += " The speech engine is not installed yet: run Fathom.bat repair with internet.";
     $("mode-hint").textContent = hint;
     $("query").placeholder = P.ph;
@@ -49,6 +54,7 @@
       scan_every: num("opt-every", 1), slowmo: num("opt-slow", 4), before: num("opt-before", 2), after: num("opt-after", 2), hold: num("opt-hold", 2), clipmode: state.clipmode,
       changes: $("opt-changes").checked, listen: $("opt-listen").checked, speech_model: $("opt-model").value,
     };
+    if (state.preset === "ref") Object.assign(o, { refs: state.refs.slice(), ref_kind: state.refkind });
     const only = lookIn(); if (only.length < KINDS.length) o.only = only;
     if (state.preset === "seen") Object.assign(o, { ocr: true, media_text: true, media_speech: false, listen: false });
     else if (state.preset === "spoken") Object.assign(o, { media_text: false, media_speech: true, listen: true });
@@ -57,12 +63,14 @@
   }
   const OPTION_IDS = ["opt-case", "opt-word", "opt-regex", "opt-ocr", "opt-hand", "opt-strict", "opt-thorough", "opt-recursive", "opt-junk", "opt-cloud", "opt-every", "opt-slow", "opt-before", "opt-after", "opt-hold", "opt-changes", "opt-listen", "opt-model", "in-documents", "in-pictures", "in-videos", "in-audio"];
   function saveOptions() {
-    F.save("find", { mode: state.mode, preset: state.preset, clipmode: state.clipmode, v: Object.fromEntries(OPTION_IDS.map((id) => [id, $(id).type === "checkbox" ? $(id).checked : $(id).value])) });
+    F.save("find", { refs: state.refs, refkind: state.refkind, mode: state.mode, preset: state.preset, clipmode: state.clipmode, v: Object.fromEntries(OPTION_IDS.map((id) => [id, $(id).type === "checkbox" ? $(id).checked : $(id).value])) });
   }
   function restoreOptions() {
     const saved = F.load("find", null);
     if (!saved) return;
     for (const [id, val] of Object.entries(saved.v || {})) { const el = $(id); if (!el) continue; if (el.type === "checkbox") el.checked = !!val; else el.value = val; }
+    state.refs = Array.isArray(saved.refs) ? saved.refs.filter((x) => typeof x === "string").slice(0, 12) : [];
+    state.refkind = ["auto", "like", "same", "person"].includes(saved.refkind) ? saved.refkind : "auto";
     state.mode = saved.mode === "object" ? "object" : "text";
     state.preset = PRESETS[saved.preset] ? saved.preset : (state.mode === "object" ? "objects" : "words");
     state.clipmode = ["pause", "result", "all"].includes(saved.clipmode) ? saved.clipmode : "result";
@@ -79,6 +87,60 @@
     $("clipcalc").replaceChildren("A result that stays on screen for ", h("b", { text: `${m} seconds` }), ` makes a clip of about `, h("b", { text: `${+total.toFixed(1)} seconds` }), `: ${parts.join(" + ")}.`);
   }
 
+  // ---------- reference pictures
+  const REF_HINT = {
+    auto: "Fathom decides: pictures that are mostly one face are searched as a person, anything else as a look-alike.",
+    like: "Finds things that look like your pictures: the same kind of object, animal or scene, in any photo, angle or size. The first time it downloads a 600 MB model (needs internet, once).",
+    same: "Finds this exact item even when it is small, tilted or half hidden: a logo, product, poster, painting. Works best on things with edges, texture or text. No download.",
+    person: "Finds the same person's face in other photos and video frames. Add 2 to 5 clear pictures of them for the best result. The first time it downloads two small models (about 39 MB). Everything stays on this PC.",
+  };
+  function setRefKind(k) {
+    state.refkind = REF_HINT[k] ? k : "auto";
+    for (const b of document.querySelectorAll("#refkinds .choice")) b.setAttribute("aria-pressed", b.dataset.k === state.refkind);
+    $("ref-kind-hint").textContent = REF_HINT[state.refkind];
+    saveOptions();
+  }
+  function syncRefs() {
+    const box = $("ref-thumbs");
+    box.replaceChildren(...state.refs.map((p, i) => h("div", { class: "refthumb", title: p },
+      h("img", { src: F.thumbUrl(p, 200), alt: "" }),
+      h("button", { type: "button", "aria-label": "Remove this picture", onclick: (e) => { e.stopPropagation(); state.refs.splice(i, 1); syncRefs(); saveOptions(); } }, "×"))));
+    $("ref-empty").hidden = state.refs.length > 0;
+    $("ref-clear").hidden = state.refs.length < 2;
+    $("ref-kind-hint").textContent = REF_HINT[state.refkind];
+  }
+  function addRefs(paths) {
+    let n = 0;
+    for (const p of paths || []) if (p && !state.refs.includes(p) && state.refs.length < 12) { state.refs.push(p); n++; }
+    if (n) { syncRefs(); saveOptions(); }
+    else if (state.refs.length >= 12) F.toast("12 reference pictures is the most.");
+  }
+  async function uploadRefs(files) {
+    for (const f of files) {
+      if (!f.type.startsWith("image/")) { F.toast(`${f.name} is not a picture.`); continue; }
+      try {
+        const r = await fetch(`/api/ref/upload?name=${encodeURIComponent(f.name || "pasted.png")}`, { method: "POST", headers: { "X-Fathom-Token": F.TOKEN }, body: f });
+        const j = await r.json(); if (!r.ok) throw new Error(j.detail || j.error || "Could not add that picture.");
+        addRefs([j.path]);
+      } catch (e) { F.toast(e.message); }
+    }
+  }
+  function wireRefs() {
+    $("ref-add").onclick = async () => { try { addRefs(await F.pickPaths("pictures")); } catch (e) { F.toast(e.message); } };
+    $("ref-clear").onclick = () => { state.refs = []; syncRefs(); saveOptions(); };
+    const drop = $("ref-drop");
+    drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+    drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+    drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); uploadRefs([...(e.dataTransfer.files || [])]); });
+    drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("ref-add").click(); } });
+    document.addEventListener("paste", (e) => {
+      if (state.preset !== "ref" || $("v-find").hidden) return;
+      const files = [...(e.clipboardData?.files || [])].filter((f) => f.type.startsWith("image/"));
+      if (files.length) { e.preventDefault(); uploadRefs(files); }
+    });
+    for (const b of document.querySelectorAll("#refkinds .choice")) b.onclick = () => setRefKind(b.dataset.k);
+  }
+
   // ---------- searching
   const showError = (msg) => { const e = $("query-error"); e.textContent = msg; e.hidden = false; };
   const hideError = () => { $("query-error").hidden = true; };
@@ -92,7 +154,9 @@
   async function startSearch() {
     if (state.running) { stopSearch(); return; }
     hideError();
-    const query = $("query").value.trim();
+    const isRef = state.preset === "ref";
+    const query = isRef ? "reference picture" : $("query").value.trim();
+    if (isRef && !state.refs.length) return showError("Add at least one reference picture first.");
     if (!query) return showError("Type what to look for first.");
     if (!F.state.sources.length) return showError("Add at least one file or folder first (on the left).");
     try {
@@ -145,7 +209,9 @@
     if (!n) {
       $("empty").hidden = false;
       $("empty-title").textContent = "No matches";
-      $("empty-text").textContent = state.mode === "object"
+      $("empty-text").textContent = state.preset === "ref"
+        ? "Nothing matched your reference. Add more pictures of the same thing (different angles help most), lower the strictness, turn on “Look closely”, or try another match type: “Looks like it” for a kind of thing, “This exact item” for a specific one, “Same person” for faces."
+        : state.mode === "object"
         ? "Object search looks at what is pictured, not at written words. Try a simpler name (“dog”, not “my dog Rex”), lower the strictness, or turn on “Look closely”."
         : "Nothing matched. Try turning off “Whole word” or “Match case”, check the regular expression, or make sure “Read text inside pictures” is on.";
     }
@@ -160,7 +226,7 @@
 
   // ---------- results
   const matches = (r) => (state.filter === "all" || r.kind === state.filter) && (!state.text || `${r.file} ${r.where} ${(r.snippet || []).join("")}`.toLowerCase().includes(state.text));
-  const badgeText = (r) => (r.kind === "object" && r.score != null ? `Object ${Math.round(r.score * 100)}%` : KIND_LABEL[r.kind] || r.kind);
+  const badgeText = (r) => (r.kind === "object" && r.score != null ? `${state.preset === "ref" ? "Match" : "Object"} ${Math.round(r.score * 100)}%` : KIND_LABEL[r.kind] || r.kind);
   function makeCard(r, idx) {
     const [pre, hit, post] = r.snippet && r.snippet.length === 3 ? r.snippet : ["", (r.snippet || [""])[0], ""];
     const card = h("article", { class: "card" },
@@ -278,6 +344,7 @@
     for (const b of document.querySelectorAll("#kinds .choice")) b.onclick = () => setPreset(b.dataset.p);
     for (const k of KINDS) $("in-" + k).addEventListener("change", (e) => { if (!lookIn().length) { e.target.checked = true; F.toast("Pick at least one kind of file to look in."); } });
     for (const b of document.querySelectorAll("#clipmode .choice")) b.onclick = () => setClipMode(b.dataset.v);
+    wireRefs();
     $("go").onclick = startSearch;
     $("query").addEventListener("keydown", (e) => { if (e.key === "Enter") startSearch(); });
     $("filter").addEventListener("input", (e) => { state.text = e.target.value.trim().toLowerCase(); applyFilter(); });
@@ -316,6 +383,6 @@
   F.onSourcesChanged = ((prev) => () => { prev && prev(); refreshMedia(); })(F.onSourcesChanged);
   $("opt-recursive").addEventListener("change", refreshMedia); $("opt-junk").addEventListener("change", refreshMedia);
   F.engineRefresh = refreshCaps;
-  restoreOptions(); wire(); setClipMode(state.clipmode); syncLabels(); setPreset(state.preset, true);
+  restoreOptions(); wire(); setRefKind(state.refkind); setClipMode(state.clipmode); syncLabels(); setPreset(state.preset, true);
   F.addTool({ id: "find", group: "search", icon: "🔎", label: "Find", blurb: "Search any file for words, numbers or objects. Every match comes with a highlighted picture, and videos give you a clip plus a still.", el: $("v-find"), onShow: () => { $("query").focus(); refreshMedia(); } });
 })();

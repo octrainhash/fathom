@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Search one file (of any kind) and report every match with a highlighted, circled picture."""
 from __future__ import annotations
 
@@ -43,6 +44,8 @@ def _bool(d: dict, key: str, default: bool) -> bool:
 class Options:
     query: str = ""
     mode: str = "text"          # "text" = words/numbers (incl. text inside pictures); "object" = the actual thing
+    refs: tuple = ()            # object mode: paths of reference pictures to look for instead of a typed word
+    ref_kind: str = "auto"      # "auto" | "same" (this exact item) | "like" (looks like it) | "person" (same face)
     case_sensitive: bool = False
     use_regex: bool = False
     whole_word: bool = False
@@ -71,9 +74,13 @@ class Options:
     @staticmethod
     def from_dict(d: dict) -> "Options":
         model = str(d.get("speech_model", "base"))
+        refs = tuple(str(x) for x in (d.get("refs") or []) if isinstance(x, str) and x.strip())[:12]
+        query = str(d.get("query", "")).strip() or ("reference picture" if refs else "")
         return Options(
-            query=str(d.get("query", "")).strip(),
-            mode="object" if str(d.get("mode", "text")) == "object" else "text",
+            query=query,
+            refs=refs,
+            ref_kind=str(d.get("ref_kind")) if str(d.get("ref_kind")) in ("auto", "same", "like", "person") else "auto",
+            mode="object" if (refs or str(d.get("mode", "text")) == "object") else "text",
             case_sensitive=_bool(d, "case_sensitive", False),
             use_regex=_bool(d, "use_regex", False),
             whole_word=_bool(d, "whole_word", False),
@@ -110,6 +117,8 @@ class Context:
         self.opts = opts
         self.pattern = compile_query(opts.query, opts.case_sensitive, opts.use_regex, opts.whole_word) if opts.mode == "text" else None
         self.is_sub = False
+        self.ref_objs: list = []
+        self.ref_kind = "like"
         self.out_dir = out_dir
         self.url_prefix = url_prefix
         self._emit = emit
@@ -235,6 +244,12 @@ def search_lines(ctx: Context, lines, display: str, origin: Path) -> None:
 def picture_hits(ctx: Context, image: Image.Image) -> list[dict]:
     """[{'box', 'snippet': [pre, match, post], 'score'}] for one picture, in text or object mode."""
     hits: list[dict] = []
+    if ctx.opts.mode == "object" and ctx.opts.refs:
+        from app.reference import find as find_reference
+
+        for item in find_reference(ctx.ref_kind, image, ctx.ref_objs, ctx.opts.strictness, ctx.opts.thorough):
+            hits.append({"box": item["bbox"], "snippet": ["", "reference picture", ""], "score": item["score"]})
+        return hits
     if ctx.opts.mode == "object":
         from app.detect import find_objects
 

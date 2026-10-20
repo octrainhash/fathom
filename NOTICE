@@ -1,0 +1,23 @@
+Fathom
+Copyright (C) 2026 The Fathomist (contact: buzznomore401@gmail.com)
+
+Fathom is free software, licensed under the GNU Affero General Public License,
+version 3 or (at your option) any later version. See the LICENSE file.
+
+You may use, copy, modify and share Fathom freely. In return, and as permitted
+by section 7 of the AGPL, these additional terms apply:
+
+1. Attribution. Keep this NOTICE and every copyright notice in the source files
+   and in the About/credits of any copy or fork. Do not remove or hide the
+   author's name.
+2. Source. If you distribute Fathom, or let people use a modified Fathom over a
+   network, you must offer them the complete corresponding source code under the
+   same licence (AGPL section 13).
+3. Name. The names "Fathom" and "The Fathomist" and the Fathom logo identify the
+   original project. A modified version must be clearly marked as modified and
+   must not use these names or logo in a way that suggests it is the original or
+   is endorsed by the author. Use a different name for your fork.
+4. No misrepresentation. Do not claim to be the author of the original work.
+
+Third-party components keep their own licences (see licenses.html in the website
+and the LICENSE-* files in the bundled libraries).
