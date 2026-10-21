@@ -460,5 +460,51 @@
       { id: "flatten", type: "check", label: "Make the fields read-only afterwards", value: false, tip: "On: the filled form can no longer be edited by mistake.\nOff: the fields stay fillable." }],
     extra: (form) => { const out = h("div", { class: "hint" }); return h("div", {}, h("div", { class: "row" }, h("button", { class: "btn small", type: "button", tip: "Lists the fields found in the first PDF on the left.", onclick: async () => { try { const r = await post("/api/tools/pdfform-fields", { paths: F.state.sources }); if (!r.fields.length) { out.textContent = `${r.name} has no fillable fields.`; return; } out.replaceChildren(h("b", { text: `${r.name}: ${r.fields.length} field${r.fields.length === 1 ? "" : "s"}` }), h("ul", {}, ...r.fields.map((f) => h("li", { text: `${f.name}  (${f.kind}${f.value ? ", now: " + f.value : ""})` })))); form.set("values", r.fields.map((f) => f.name + " = " + f.value).join("\n")); } catch (e) { F.toast(e.message); } } }, "Show the fields")), out); },
     endpoint: "/api/tools/pdfform-fill", body: (v) => ({ paths: F.state.sources, text: v.values || "", flag: !!v.flatten, output: F.outputBody() }), run: "Fill in the form", noun: "PDF" });
+
+  F.addTool({ id: "smartrename", group: "tidy", icon: "✨", label: "Smart rename", blurb: "Your local AI reads each file and suggests a clear name. You check and edit the names before anything changes.", el: F.makeView("smartrename"),
+    build: (sec) => {
+      const view = F.standardView("smartrename", { output: false }); sec.replaceWith(view.sec); F.tools.find((x) => x.id === "smartrename").el = view.sec; view.sec.classList.add("on");
+      const main = view.main;
+      main.append(F.titleBlock("Smart rename", "Needs the local AI (set up in AI settings). It reads text files, the first pages of PDFs and small copies of pictures, all on this computer. Files it cannot read are left alone. Nothing is renamed until you press Apply, and Undo puts the names back."));
+      const form = F.form([
+        { id: "style", type: "select", label: "Name style", value: "words", options: [{ v: "words", l: "Normal words" }, { v: "dash", l: "lowercase-with-dashes" }, { v: "snake", l: "lowercase_with_underscores" }], tip: "How the suggested names are written." },
+        { id: "words", type: "number", label: "Longest name (words)", value: 6, tip: "The AI is asked to keep names to this many words." },
+        { id: "pictures", type: "check", label: "Look at pictures too", value: true, tip: "On: the AI looks at a small copy of each picture. Needs a vision model (the default one can).\nOff: pictures are skipped." }]);
+      main.append(h("div", { class: "card-box" }, form.el));
+      const go = h("button", { class: "primary", tip: "Asks the AI for a name for every file on the left. Nothing is renamed yet." }, "Suggest names");
+      const apply = h("button", { class: "btn", hidden: true, tip: "Renames the files as shown in the table." }, "Apply these names");
+      const box = h("div"), tbl = h("div");
+      main.append(h("div", { class: "row", style: "margin-top:16px" }, go, apply), box, tbl);
+      let rows = [];
+      const panel = new F.JobPanel(box, { noun: "file", summary: false });
+      panel.onDone = async () => {
+        go.disabled = false;
+        try {
+          const r = await api(`/api/tools/smartrename/${panel.id}/rows`); rows = r.rows;
+          if (!rows.length) { tbl.replaceChildren(h("div", { class: "hint", text: "No names were suggested. Check that the local AI is running." })); return; }
+          apply.hidden = false; apply.textContent = `Apply to ${rows.length} file${rows.length === 1 ? "" : "s"}`;
+          tbl.replaceChildren(h("table", { class: "tbl" }, h("tr", {}, ["Now", "Suggested name (you can edit)"].map((x) => h("th", { text: x }))),
+            ...rows.map((x) => { const inp = h("input", { type: "text", value: x.new, style: "width:100%", "aria-label": "New name for " + x.old }); inp.oninput = () => { x.new = inp.value.trim() || x.old; x.status = x.new === x.old ? "same" : "ok"; }; return h("tr", {}, h("td", { text: x.old }), h("td", {}, inp)); })));
+        } catch (e) { F.toast(e.message); }
+      };
+      go.onclick = async () => { if (!F.needFiles()) return; go.disabled = true; apply.hidden = true; tbl.replaceChildren(); try { const r = await post("/api/tools/smartrename", { paths: F.state.sources, recursive: true, options: form.values() }); panel.start(r.job); } catch (e) { go.disabled = false; F.toast(e.message); } };
+      apply.onclick = async () => { try { const r = await post("/api/tools/rename/apply", { rows }); F.toast(`Renamed ${r.renamed} file${r.renamed === 1 ? "" : "s"}` + (r.failed.length ? `, ${r.failed.length} failed` : "")); F.refreshUndo(); apply.hidden = true; tbl.replaceChildren(); } catch (e) { F.toast(e.message); } };
+    } });
+
+  F.addTool({ id: "semsearch", group: "search", icon: "🧭", label: "Search by meaning", blurb: "Find notes and documents by what they are about, not the exact words. Runs on this computer.", el: F.makeView("semsearch"),
+    build: (sec) => {
+      const view = F.standardView("semsearch", { output: false }); sec.replaceWith(view.sec); F.tools.find((x) => x.id === "semsearch").el = view.sec; view.sec.classList.add("on");
+      const main = view.main;
+      main.append(F.titleBlock("Search by meaning", "Step 1: add your folders on the left and press “Learn these files” (text, notes and PDFs; only new or changed files are read again). Step 2: describe what you want. Needs the small embedding model once: in a terminal run  ollama pull nomic-embed-text . Nothing leaves this computer."));
+      const learn = h("button", { class: "btn", tip: "Reads the files on the left and remembers what they are about. Run it again later: it only does new or changed files." }, "Learn these files");
+      const box = h("div"), q = h("input", { type: "text", placeholder: "e.g. the letter about my rent increase", style: "width:100%", "aria-label": "What are you looking for" });
+      const find = h("button", { class: "primary", tip: "Searches the files you have learned inside the folders on the left." }, "Search"), res = h("div");
+      main.append(h("div", { class: "row" }, learn), box, h("div", { class: "card-box", style: "margin-top:16px" }, q), h("div", { class: "row", style: "margin-top:12px" }, find), res);
+      const panel = new F.JobPanel(box, { noun: "file", summary: false }); panel.onDone = () => { learn.disabled = false; };
+      learn.onclick = async () => { if (!F.needFiles()) return; learn.disabled = true; try { const r = await post("/api/tools/semindex", { paths: F.state.sources, recursive: true }); panel.start(r.job); } catch (e) { learn.disabled = false; F.toast(e.message); } };
+      const go = async () => { try { const r = await post("/api/tools/semsearch", { paths: F.state.sources, text: q.value, number: 12 });
+        res.replaceChildren(r.hits.length ? h("table", { class: "tbl" }, h("tr", {}, ["File", "Best matching passage"].map((x) => h("th", { text: x }))), ...r.hits.map((x) => h("tr", {}, h("td", {}, h("a", { href: "#", text: x.name, tip: "Show this file", onclick: (e) => { e.preventDefault(); F.reveal(x.path); } })), h("td", { text: x.snippet })))) : h("div", { class: "hint", text: r.indexed ? "Nothing close was found in these folders." : "Nothing has been learned yet. Press “Learn these files” first." })); } catch (e) { F.toast(e.message); } };
+      find.onclick = go; q.onkeydown = (e) => { if (e.key === "Enter") go(); };
+    } });
   } catch (e) { console.warn("Fathom: the extra PDF tools could not load", e); }
 })();

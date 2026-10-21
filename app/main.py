@@ -344,6 +344,33 @@ def t_meta_strip(b: OpBody):
     return filetools.meta_strip_start(b.paths, b.recursive, b.output)
 
 
+@_post("/api/tools/smartrename")
+def t_smartrename(b: OpBody):
+    from app import smartrename
+    return smartrename.start(b.paths, b.recursive, b.options or {})
+
+
+@app.get("/api/tools/smartrename/{job_id}/rows")
+def t_smartrename_rows(job_id: str):
+    from app import ops, smartrename
+    job = ops.OPJOBS.get(job_id)
+    if not job:
+        raise service.UserError("That job is gone. Run it again.")
+    return smartrename.rows_from_results(list(job.results))
+
+
+@_post("/api/tools/semindex")
+def t_semindex(b: OpBody):
+    from app import semsearch
+    return semsearch.index_start(b.paths, b.recursive)
+
+
+@_post("/api/tools/semsearch")
+def t_semsearch(b: OpBody):
+    from app import semsearch
+    return semsearch.search(b.text, b.paths, int(b.number or 12))
+
+
 @_post("/api/tools/rename/preview")
 def t_rename_preview(b: OpBody):
     return filetools.rename_preview(b.paths, b.recursive, b.rules)
