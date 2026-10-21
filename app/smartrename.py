@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Smart rename: the local AI reads each file (text, PDF first page, or a small copy of a picture) and suggests a clear name.
 Nothing is renamed here. The suggestions come back as rows in the same shape as the normal Rename preview, so the person edits
 them and applies with the existing rename/apply (which keeps the undo journal)."""

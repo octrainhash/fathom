@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """A visual PDF editor that works on the objects themselves: every shape, line, arrow, picture and piece of text on a page can be
 picked, dragged, resized, recoloured, copied or deleted, and new ones can be added. It works on the page's own drawing
 instructions (pypdf), so it needs no extra program and nothing is turned into a flat picture.

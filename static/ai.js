@@ -1,3 +1,4 @@
+/* Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE). */
 /* The Assistant: a chat that can see what you are doing in Fathom, use every tool, make documents, pictures and videos, read your files, and add new tools
    to the app ("My tools"). Also: the floating "Ask Fathom" button, screen awareness, and the settings. */
 (() => {
@@ -67,6 +68,19 @@
       recent_activity: F.activity.slice(-20), assistant_tools_added_by_user: (F.ai && F.ai.pluginIds) || [],
     };
   }
+  // the assistant needs to know every screen the app really has (so "where is X?" is answered from facts, including tools you added)
+  let mapTimer = 0;
+  function sendMap() {
+    clearTimeout(mapTimer);
+    mapTimer = setTimeout(() => {
+      try {
+        const groups = Object.fromEntries(F.groups.map((g) => [g.id, g.label]));
+        const tools = F.tools.map((t) => ({ id: t.id, label: t.label, group: t.group, what: (t.blurb || "").slice(0, 220) }));
+        post("/api/ai/map", { tools, groups }).catch(() => {});
+      } catch { /* never break the app */ }
+    }, 400);
+  }
+  F.sendMap = sendMap;
   let ctxTimer = 0;
   function schedule() { clearTimeout(ctxTimer); ctxTimer = setTimeout(() => { post("/api/ai/context", { context: snapshot() }).catch(() => {}); }, 500); }
   document.addEventListener("input", (e) => { if (!e.target.closest(".ai-root")) schedule(); }, true);
@@ -326,12 +340,12 @@
   }
   const FRIENDLY = { get_screen_context: "Looking at what you are doing", list_files: "Looking in a folder", read_file: "Reading a file", view_image: "Looking at a picture", search_files: "Searching your files", write_file: "Writing a file", edit_file: "Editing a file", file_operation: "Organising files",
     create_document: "Making a document", create_presentation: "Making a presentation", create_spreadsheet: "Making a spreadsheet", create_chart: "Drawing a chart", design_image: "Designing a picture", generate_image: "Making a picture", text_to_speech: "Making a voice recording", make_video: "Making a video",
-    web_search: "Searching the web", web_fetch: "Reading a web page", run_python: "Running code", run_shell: "Running a command", fathom_tools: "Checking Fathom's tools", fathom_tool_info: "Checking how a tool works", fathom_run: "Using a Fathom tool", open_in_fathom: "Opening it in Fathom",
+    web_search: "Searching the web", web_fetch: "Reading a web page", run_python: "Running code", run_shell: "Running a command", fathom_tools: "Checking Fathom's tools", fathom_tool_info: "Checking how a tool works", fathom_run: "Using a Fathom tool", open_in_fathom: "Taking you there", find_in_fathom: "Looking for it in Fathom",
     create_tool: "Adding a new tool to Fathom", test_tool: "Testing the new tool", list_my_tools: "Checking your tools", read_my_tool: "Reading a tool", delete_my_tool: "Removing a tool", remember: "Remembering that", ask_user: "Asking you", show_files: "Showing files" };
   function friendly(name, label) { const f = FRIENDLY[name] || name; const detail = label && label !== name && !label.startsWith(name + " {") ? label.split("\n")[0].replace(/^(Run this (Python code|command):?)/, "").trim() : ""; return detail && name !== "get_screen_context" ? `${f}: ${detail.slice(0, 90)}` : f; }
 
   function uiAction(ev) {
-    if (ev.action === "open") { if (ev.paths && ev.paths.length) F.addPaths(ev.paths); if (ev.tool && F.tools.some((t) => t.id === ev.tool)) F.show(ev.tool); }
+    if (ev.action === "open") { if (ev.paths && ev.paths.length) F.addPaths(ev.paths); if (ev.tool && F.tools.some((t) => t.id === ev.tool)) { F.show(ev.tool); F.toast("Opened " + (ev.label || ev.tool)); } else if (ev.tool) F.toast("That screen is not in this version of Fathom."); }
     else if (ev.action === "tools_changed") loadPlugins(ev.open);
   }
 
@@ -513,8 +527,8 @@
     ai.pluginIds = [...mineTools.keys()];
     F.buildNav(); if (F.currentTool) { const g = F.currentTool.group; document.querySelectorAll("#groups button").forEach((b) => b.setAttribute("aria-selected", b.dataset.g === g)); }
     const cur = F.currentTool; if (cur && cur.group === "mine") F.show(open ? "mine-" + open : cur.id.startsWith("mine-") && !mineTools.has(cur.id.slice(5)) ? "mytools" : cur.id);
-    drawMine(); schedule();
+    drawMine(); schedule(); sendMap();
     if (open && mineTools.has(open)) F.toast(`New tool added: ${mineTools.get(open).label}`);
   }
-  F.onBoot = F.onBoot || []; F.onBoot.push(() => { loadPlugins(); updateFab(); schedule(); });
+  F.onBoot = F.onBoot || []; F.onBoot.push(() => { loadPlugins(); updateFab(); schedule(); sendMap(); });
 })();

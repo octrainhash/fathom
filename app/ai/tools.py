@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Everything the assistant can do. Each tool is a plain function plus a description the model reads.
 
 risk levels (decide when the user is asked first):
@@ -62,7 +63,7 @@ def schemas() -> list[dict]:
 # Small local models (Ollama) have a short memory and read the prompt slowly, so they get fewer tools with shorter descriptions.
 LOCAL_TOOLS = ("get_screen_context", "list_files", "read_file", "view_image", "search_files", "write_file", "edit_file", "file_operation",
                "create_document", "create_presentation", "create_spreadsheet", "fathom_tools", "fathom_tool_info", "fathom_run",
-               "open_in_fathom", "web_search", "web_fetch", "run_python", "ask_user", "show_files", "remember")
+               "find_in_fathom", "open_in_fathom", "web_search", "web_fetch", "run_python", "ask_user", "show_files", "remember")
 
 
 def _short(text: str, n: int) -> str:
@@ -807,9 +808,54 @@ def fathom_run(inp, sess):
     return Result(_clip(json.dumps(_strip_big(res), ensure_ascii=False, default=str), 30000))
 
 
-@tool("open_in_fathom", "Show something to the user inside Fathom: open a tool tab (by id, e.g. 'stamp', 'merge', 'rotate') and optionally add files to the left-hand list so they can continue by hand.", {"tool": {"type": "string"}, "paths": {"type": "array", "items": {"type": "string"}}}, ["tool"])
+def _known_tool_ids() -> dict:
+    from app.ai import agent
+    tools = (agent.APP_MAP.get("tools") or [])
+    if tools:
+        return {t["id"]: t for t in tools}
+    return {s["id"]: s for s in catalog.screens()} | {k: {"id": k, "label": k.title(), "group": "edit"} for k in ("stamp", "sign")}
+
+
+@tool("find_in_fathom", "Where is something in the Fathom app? Searches the real screens (tabs and tools) and the places inside them, from a few plain words about what the user wants ('compress video', 'sign a pdf', 'dark mode', 'api key', 'drag arrows in a PDF'). "
+      "Returns whether it exists, and for each match the tab, the tool, a sentence saying where to click, and the id to give to open_in_fathom. Use it for every 'where is / do you have / how do I find / can Fathom do' question about the app itself, and before open_in_fathom when unsure of the id.",
+      {"query": {"type": "string", "description": "a few plain words describing what the user is looking for"}}, ["query"])
+def find_in_fathom(inp, sess):
+    from app.ai import agent
+    return Result(json.dumps(catalog.find(str(inp.get("query") or ""), agent.APP_MAP.get("tools") or None, agent.APP_MAP.get("groups") or _GROUP_FALLBACK), ensure_ascii=False, indent=1)[:MAX_TEXT])
+
+
+_GROUP_FALLBACK = {"home": "Home", "ai": "Assistant", "search": "Search", "convert": "Convert", "size": "Size", "edit": "Edit", "protect": "Protect", "tidy": "Tidy", "lab": "Lab", "sync": "Sync", "torrent": "Torrent", "drives": "Drives", "mine": "My tools"}
+
+
+@tool("open_in_fathom", "TAKE THE USER THERE: switch the app to a tool (tab) by its id, e.g. 'visual', 'stamp', 'smartrename', 'aisettings' (ids come from find_in_fathom), and optionally add files to the left-hand list so they can continue by hand. "
+      "When the user only asked WHERE something is, tell them and ask first; call this after they say yes, or straight away when they asked to be taken/opened/redirected.", {"tool": {"type": "string"}, "paths": {"type": "array", "items": {"type": "string"}}}, ["tool"])
 def open_in_fathom(inp, sess):
-    return Result(f"Opened {inp['tool']} for the user.", ui={"action": "open", "tool": inp["tool"], "paths": [str(_resolve(x)) for x in inp.get("paths") or []]})
+    tid = str(inp.get("tool") or "").strip()
+    known = _known_tool_ids()
+    if tid.startswith("mine-") and tid[5:] in known:
+        tid = tid[5:]
+    if tid not in known and "mine-" + tid in known:
+        tid = "mine-" + tid
+    if tid not in known:
+        close = catalog.find(tid.replace("-", " "), agent_tools(), _group_names(), limit=3)["matches"]
+        if not close:
+            names = {t.get("label", "").lower().replace(" ", ""): k for k, t in known.items()} | {k: k for k in known}
+            close = [{"label": known[names[n]].get("label", n), "open_with": names[n]} for n in difflib.get_close_matches(tid.lower().replace(" ", ""), list(names), n=3, cutoff=0.6)]
+        hint = "; ".join(f"{m['label']} (id {m['open_with']})" for m in {m["open_with"]: m for m in close if m.get("open_with")}.values())
+        raise UserError(f"There is no screen called '{tid}'. " + (f"Did you mean: {hint}?" if hint else "Use find_in_fathom to look it up."))
+    t = known[tid]
+    grp = _group_names().get(t.get("group"), t.get("group") or "")
+    return Result(f"Done: the app now shows {t.get('label') or tid}" + (f" (in the {grp} tab)" if grp else "") + ".", ui={"action": "open", "tool": tid, "label": t.get("label") or tid, "paths": [str(_resolve(x)) for x in inp.get("paths") or []]})
+
+
+def agent_tools():
+    from app.ai import agent
+    return agent.APP_MAP.get("tools") or None
+
+
+def _group_names() -> dict:
+    from app.ai import agent
+    return agent.APP_MAP.get("groups") or _GROUP_FALLBACK
 
 
 # ================================================================== adding features to Fathom (My tools)

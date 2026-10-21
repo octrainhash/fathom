@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Visual editor for everything that has objects you can drag: PDF pages, PowerPoint slides, SVG drawings and pictures (as layers).
 One screen, one model: objects {id, kind, x, y, w, h, fill, stroke, lw, text, size} in page units with the origin at the top left,
 edits = {mods: [{id, dx, dy, sx, sy, fill, stroke, lw, text, delete, dup}], adds: [{type, x, y, w, h, x2, y2, stroke, fill, lw, text, size, color, data}]}."""

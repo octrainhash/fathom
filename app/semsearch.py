@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Search by meaning, all on this computer. Files are cut into short passages, each passage is turned into numbers by a small local
 embedding model (Ollama, default nomic-embed-text), and the numbers are kept in a SQLite file. A search embeds your question and
 returns the closest passages, with a proof picture: the best-matching sentence highlighted, circled and pointed at with an arrow.

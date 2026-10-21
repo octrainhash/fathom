@@ -1178,6 +1178,11 @@ class AiContext(BaseModel):
     context: dict = Field(default_factory=dict)
 
 
+class AiMap(BaseModel):
+    tools: list = Field(default_factory=list)
+    groups: dict = Field(default_factory=dict)
+
+
 class AiUpload(BaseModel):
     name: str = "pasted"
     data: str = ""          # base64
@@ -1259,6 +1264,12 @@ def ai_stop(b: AiSid):
 @_post("/api/ai/context")
 def ai_context(b: AiContext):
     ai_agent.update_context(b.context)
+    return {"ok": True}
+
+
+@_post("/api/ai/map")
+def ai_map(b: AiMap):
+    ai_agent.update_map(b.tools, b.groups)
     return {"ok": True}
 
 

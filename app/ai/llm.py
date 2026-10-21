@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Talks to the language model. One internal message format (Anthropic-style blocks) and two wire formats:
 
   * Anthropic Messages API (Claude)
