@@ -15,13 +15,14 @@ import re
 from pathlib import Path
 
 from pypdf import PdfReader, PdfWriter
-from pypdf.generic import ArrayObject, ContentStream, FloatObject, NameObject, NumberObject
+from pypdf.generic import ArrayObject, ByteStringObject, ContentStream, FloatObject, NameObject, NumberObject
 
 from .service import UserError
 
 PATH_OPS = {"m", "l", "c", "v", "y", "h", "re"}
 PAINT = {"S": (1, 0), "s": (1, 0), "f": (0, 1), "F": (0, 1), "f*": (0, 1), "B": (1, 1), "B*": (1, 1), "b": (1, 1), "b*": (1, 1)}
 MAX_OBJECTS = 4000
+MAX_GLYPHS = 20000          # characters kept per text object (a page is never this big)
 IDENT = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
 
 
@@ -124,6 +125,31 @@ class _Fonts:
         self.cache[name] = info
         return info
 
+    def glyphs(self, name: str, raw: bytes, size: float) -> list[tuple[int, float, int]]:
+        """one entry per character shown: (bytes it takes, its width in text units, its code)"""
+        two, dw, widths, _first, _b = self.get(name)
+        out: list[tuple[int, float, int]] = []
+        if two:
+            i = 0
+            while i < len(raw):
+                if i + 1 < len(raw):
+                    c = (raw[i] << 8) | raw[i + 1]
+                    out.append((2, widths.get(c, dw) * size, c)); i += 2
+                else:
+                    out.append((1, dw * size, raw[i])); i += 1
+            return out
+        measure = None
+        if not widths and _b:
+            try:
+                from reportlab.pdfbase.pdfmetrics import stringWidth
+                fn = _rl_font(_b)
+                measure = lambda b: stringWidth(chr(b), fn, size)     # noqa: E731
+            except Exception:
+                measure = None
+        for b in raw:
+            out.append((1, measure(b) if measure else widths.get(b, dw) * size, b))
+        return out
+
     def width(self, name: str, raw: bytes, size: float) -> float:
         two, dw, widths, _first, _b = self.get(name)
         if two:
@@ -138,6 +164,9 @@ class _Fonts:
 
 
 def _raw(o) -> bytes:
+    ob = getattr(o, "original_bytes", None)      # the exact bytes of a string in the page, whatever pypdf made of them
+    if isinstance(ob, (bytes, bytearray)):
+        return bytes(ob)
     try:
         return bytes(o)
     except Exception:
@@ -165,7 +194,7 @@ def parse(reader: PdfReader, page) -> tuple[list[tuple], list[dict]]:
         pass
     objs: list[dict] = []
     ctm, stack = IDENT, []
-    state = {"stroke": (0.0, 0.0, 0.0), "fill": (0.0, 0.0, 0.0), "lw": 1.0}
+    state = {"stroke": (0.0, 0.0, 0.0), "fill": (0.0, 0.0, 0.0), "lw": 1.0, "tc": 0.0, "tw": 0.0, "th": 1.0, "rise": 0.0, "fillseq": [([NumberObject(0)], "g")]}
     sstack = []
     path_start, pb = None, None       # first path op index, [x0,y0,x1,y1]
     cur = (0.0, 0.0)
@@ -174,6 +203,8 @@ def parse(reader: PdfReader, page) -> tuple[list[tuple], list[dict]]:
     tfont, tsize, tlead = "", 0.0, 0.0
     t_box = None
     t_shows = 0
+    t_glyphs: list[tuple] = []     # every character of the current text object (see glyph_boxes)
+    t_infos: list[dict] = []       # one entry per show instruction
 
     def grow(box, x, y):
         X, Y = pt(ctm, x, y)
@@ -197,11 +228,29 @@ def parse(reader: PdfReader, page) -> tuple[list[tuple], list[dict]]:
             state["lw"] = _f(operands[0])
         elif op in ("g", "G") and operands:
             v = _f(operands[0]); state["fill" if op == "g" else "stroke"] = (v, v, v)
+            if op == "g":
+                state["fillseq"] = [(list(operands), "g")]
         elif op in ("rg", "RG") and len(operands) == 3:
             state["fill" if op == "rg" else "stroke"] = tuple(_f(x) for x in operands)
+            if op == "rg":
+                state["fillseq"] = [(list(operands), "rg")]
         elif op in ("k", "K") and len(operands) == 4:
             c_, m_, y_, k_ = (_f(x) for x in operands)
             state["fill" if op == "k" else "stroke"] = ((1 - c_) * (1 - k_), (1 - m_) * (1 - k_), (1 - y_) * (1 - k_))
+            if op == "k":
+                state["fillseq"] = [(list(operands), "k")]
+        elif op == "cs" and operands:
+            state["fillseq"] = [(list(operands), "cs")]
+        elif op in ("sc", "scn") and operands:
+            state["fillseq"] = [x for x in state["fillseq"] if x[1] == "cs"] + [(list(operands), op)]
+        elif op == "Tc" and operands:
+            state["tc"] = _f(operands[0])
+        elif op == "Tw" and operands:
+            state["tw"] = _f(operands[0])
+        elif op == "Tz" and operands:
+            state["th"] = (_f(operands[0]) or 100.0) / 100.0
+        elif op == "Ts" and operands:
+            state["rise"] = _f(operands[0])
         elif op in PATH_OPS:
             if path_start is None:
                 path_start, pb = i, None
@@ -236,10 +285,11 @@ def parse(reader: PdfReader, page) -> tuple[list[tuple], list[dict]]:
             in_text, t_start, tm = True, i, IDENT
             tlm = IDENT
             t_box, t_shows = None, 0
+            t_glyphs, t_infos = [], []
         elif op == "ET":
             if in_text and t_box is not None and len(objs) < MAX_OBJECTS:
                 objs.append({"id": len(objs), "kind": "text", "a": t_start, "b": i, "bbox": t_box, "ctm": ctm, "fill": _hex(state["fill"]), "stroke": None,
-                             "size": round(tsize, 2), "font": tfont, "text": "", "n_show": t_shows})
+                             "size": round(tsize, 2), "font": tfont, "text": "", "n_show": t_shows, "glyphs": t_glyphs, "shows": t_infos})
             in_text = False
         elif in_text and op == "Tf" and len(operands) == 2:
             tfont, tsize = str(operands[0]), _f(operands[1])
@@ -255,6 +305,8 @@ def parse(reader: PdfReader, page) -> tuple[list[tuple], list[dict]]:
             tlm = mul((1, 0, 0, 1, 0, -tlead), tlm); tm = tlm
         elif in_text and op in ("Tj", "TJ", "'", '"'):
             if op in ("'", '"'):
+                if op == '"' and len(operands) == 3:
+                    state["tw"], state["tc"] = _f(operands[0]), _f(operands[1])
                 tlm = mul((1, 0, 0, 1, 0, -tlead), tlm); tm = tlm
             parts = []
             if op == "TJ" and operands:
@@ -262,15 +314,22 @@ def parse(reader: PdfReader, page) -> tuple[list[tuple], list[dict]]:
             elif operands:
                 parts = [operands[-1]]
             full = mul(tm, ctm)
+            th, tc, tw, rise = state["th"], state["tc"], state["tw"], state["rise"]
+            si = len(t_infos)
             adv = 0.0
-            for p_ in parts:
+            for pi, p_ in enumerate(parts):
                 if isinstance(p_, (int, float, NumberObject, FloatObject)):
-                    adv -= _f(p_) / 1000 * tsize
+                    adv -= _f(p_) / 1000 * tsize * th
                 else:
-                    raw = _raw(p_)
-                    wd = fonts.width(tfont, raw, tsize)
-                    adv += wd
-            asc, desc = tsize * 0.9, -tsize * 0.25
+                    off = 0
+                    for nb, w0, code in fonts.glyphs(tfont, _raw(p_), tsize):
+                        step = (w0 + tc + (tw if nb == 1 and code == 32 else 0.0)) * th
+                        if len(t_glyphs) < MAX_GLYPHS:
+                            t_glyphs.append((si, pi, off, nb, adv, step, w0, code))
+                        adv += step
+                        off += nb
+            t_infos.append({"op": i, "full": full, "size": tsize, "th": th, "tc": tc, "tw": tw, "rise": rise, "font": tfont, "fillseq": list(state["fillseq"])})
+            asc, desc = tsize * 0.9 + rise, -tsize * 0.25 + rise
             for X, Y in ((0, desc), (adv, desc), (adv, asc), (0, asc)):
                 px, py = pt(full, X, Y)
                 t_box = [px, py, px, py] if t_box is None else [min(t_box[0], px), min(t_box[1], py), max(t_box[2], px), max(t_box[3], py)]
@@ -341,6 +400,164 @@ def open_page(path: str, page_no: int) -> dict:
     return {"page": page_no, "total": len(r.pages), "w": x1 - x0, "h": y1 - y0, "objects": out, "capped": len(objs) >= MAX_OBJECTS}
 
 
+def glyph_boxes(path: str, page_no: int) -> dict:
+    """every single character of the page's text, as a box for the screen: {objects: [{id, g: [[index, x, y, w, h, is_space], ...]}]}.
+    Used by the visual editor to move one letter, one full stop or one word instead of a whole line."""
+    p = Path(path)
+    if not p.is_file():
+        raise UserError("That file was not found.")
+    r = PdfReader(str(p))
+    if r.is_encrypted:
+        raise UserError("This PDF is locked with a password. Remove the password first (Protect > PDF password).")
+    if not 1 <= page_no <= len(r.pages):
+        raise UserError("That page does not exist.")
+    page = r.pages[page_no - 1]
+    _check_page(page)
+    _ops, objs = parse(r, page)
+    x0, y0, x1, y1 = _page_box(page)
+    out, total = [], 0
+    for o in objs:
+        if o["kind"] != "text" or not o.get("glyphs"):
+            continue
+        gl = []
+        for gi, (si, _pi, _off, nb, a0, step, _w0, code) in enumerate(o["glyphs"]):
+            sh = o["shows"][si]
+            size, rise = sh["size"], sh["rise"]
+            q = [pt(sh["full"], X, Y) for X, Y in ((a0, -0.25 * size + rise), (a0 + step, -0.25 * size + rise), (a0 + step, 0.9 * size + rise), (a0, 0.9 * size + rise))]
+            xs, ys = [v[0] for v in q], [v[1] for v in q]
+            gl.append([gi, round(min(xs) - x0, 2), round(y1 - max(ys), 2), round(max(xs) - min(xs), 2), round(max(ys) - min(ys), 2), 1 if (nb == 1 and code == 32) else 0])
+        total += len(gl)
+        out.append({"id": o["id"], "g": gl, "size": o.get("size"), "fill": o.get("fill")})
+    return {"page": page_no, "objects": out, "count": total}
+
+
+# ---------------------------------------------------------------- moving single characters inside a text object
+def _fill_ops(hexcol: str) -> list:
+    return [([_num(v) for v in _rgb(hexcol)], b"rg")]
+
+
+def _restore_fill(sh: dict, override: str | None) -> list:
+    if override:
+        return _fill_ops(override)
+    return [([x for x in operands], op.encode()) for operands, op in sh["fillseq"]]
+
+
+def _glyph_run(chunk: bytes, g: tuple, sh: dict, mod: dict, offx: float, offy: float, back: float, target_net: float, fill_back: str | None) -> list:
+    """the instructions that show ONE character moved by (offx, offy) points on the page (screen axes: y grows downward), optionally recoloured
+    or resized. Text-state changes are undone straight after, and the advance is corrected so every other character stays exactly where it was."""
+    _si, _pi, _off, _nb, _a0, step, w0, _code = g
+    size, th, rise = sh["size"], sh["th"], sh["rise"]
+    sx = float(mod.get("sx") or 1.0)
+    s2 = size * sx
+    L = sh["full"]
+    det = L[0] * L[3] - L[1] * L[2]
+    px, py = offx, -offy
+    if abs(det) < 1e-12:
+        tx = ty = 0.0
+    else:                                                       # page offset -> text space (the TJ number and Ts work there)
+        tx = (px * L[3] - py * L[2]) / det
+        ty = (-px * L[1] + py * L[0]) / det
+    step2 = (w0 * sx + sh["tc"] + (sh["tw"] if (_nb == 1 and _code == 32) else 0.0)) * th
+    first = tx - back
+    post = target_net - first - step2
+    k = 1000.0 / (s2 * th)
+    arr = []
+    if abs(first) > 1e-6:
+        arr.append(_num(-first * k))
+    arr.append(ByteStringObject(chunk))
+    if abs(post) > 1e-6:
+        arr.append(_num(-post * k))
+    out: list = []
+    if mod.get("fill"):
+        out += _fill_ops(mod["fill"])
+    if sx != 1.0:
+        out.append(([NameObject(sh["font"]), _num(s2)], b"Tf"))
+    if abs(ty) > 1e-9:
+        out.append(([_num(rise + ty)], b"Ts"))
+    out.append(([ArrayObject(arr)], b"TJ"))
+    if abs(ty) > 1e-9:
+        out.append(([_num(rise)], b"Ts"))
+    if sx != 1.0:
+        out.append(([NameObject(sh["font"]), _num(size)], b"Tf"))
+    if mod.get("fill"):
+        out += _restore_fill(sh, fill_back)
+    return out
+
+
+def _rebuild_show(operands, op, o: dict, si: int, by_part: dict, gm: dict, fill_back: str | None) -> list:
+    sh = o["shows"][si]
+    opn = op.decode() if isinstance(op, bytes) else str(op)
+    out: list = []
+    if opn == "'":
+        out.append(([], b"T*"))
+    elif opn == '"':
+        if len(operands) == 3:
+            out += [([operands[0]], b"Tw"), ([operands[1]], b"Tc")]
+        out.append(([], b"T*"))
+    parts = list(operands[0]) if opn == "TJ" else [operands[-1]]
+    buf: list = []
+    cur = bytearray()
+
+    def push():
+        nonlocal cur
+        if cur:
+            buf.append(ByteStringObject(bytes(cur)))
+            cur = bytearray()
+
+    def flush():
+        nonlocal buf
+        push()
+        if buf:
+            out.append(([ArrayObject(buf)], b"TJ"))
+            buf = []
+
+    usable = sh["size"] * sh["th"] != 0
+    for pi, p_ in enumerate(parts):
+        if isinstance(p_, (int, float, NumberObject, FloatObject)):
+            push(); buf.append(p_)
+            continue
+        raw = _raw(p_)
+        for gi, g in by_part.get(pi, []):
+            chunk = raw[g[2]:g[2] + g[3]]
+            mod = gm.get(str(gi)) or gm.get(gi)
+            if not mod or not usable or not (mod.get("dx") or mod.get("dy") or mod.get("sx") or mod.get("fill") or mod.get("delete") or mod.get("dup")):
+                cur += chunk
+                continue
+            flush()
+            step, k = g[5], 1000.0 / (sh["size"] * sh["th"])
+            if mod.get("delete"):                                # leave the gap, so the rest of the line does not slide
+                if abs(step) > 1e-9:
+                    out.append(([ArrayObject([_num(-step * k)])], b"TJ"))
+                continue
+            dx, dy = float(mod.get("dx") or 0), float(mod.get("dy") or 0)
+            out += _glyph_run(chunk, g, sh, mod, dx, dy, 0.0, step, fill_back)
+            d = mod.get("dup")
+            if d:
+                d = d if isinstance(d, dict) else {}
+                out += _glyph_run(chunk, g, sh, mod, dx + float(d.get("dx", 14)), dy + float(d.get("dy", 14)), step, 0.0, fill_back)
+    flush()
+    return out
+
+
+def _glyph_edit(seg: list, o: dict, gm: dict, base: int, fill_back: str | None) -> list:
+    """the text object's instructions with the single-character edits applied"""
+    if not gm or not o.get("glyphs"):
+        return seg
+    by_show: dict[int, dict[int, list]] = {}
+    for gi, g in enumerate(o["glyphs"]):
+        by_show.setdefault(g[0], {}).setdefault(g[1], []).append((gi, g))
+    touched = {int(k) for k in gm.keys()}
+    show_op = {sh["op"]: si for si, sh in enumerate(o["shows"])}
+    out: list = []
+    for k, (operands, op) in enumerate(seg):
+        si = show_op.get(base + k)
+        if si is None or not any(gi in touched for part in by_show.get(si, {}).values() for gi, _g in part):
+            out.append((operands, op))
+            continue
+        out += _rebuild_show(operands, op, o, si, by_show[si], gm, fill_back)
+    return out
+
+
 # ---------------------------------------------------------------- applying edits
 def _T(o: dict, m: dict):
     """the page-space transform for one object's edit: scale about its top-left corner, then move. Returns a 6-tuple in PDF page space."""
@@ -377,6 +594,40 @@ def _wrap(seg: list, o: dict, m: dict, extra: tuple[float, float] = (0.0, 0.0)) 
     return out
 
 
+_SINGLE = {"w", "J", "j", "M", "d", "ri", "i", "Tc", "Tw", "Tz", "TL", "Tf", "Tr", "Ts"}
+
+
+def _leaks(seg: list) -> list:
+    """Settings a piece of the page leaves behind for what is drawn after it (colour, line width, text size, spacing...). Wrapping the piece in
+    q ... Q for a move would throw them away, so they are put back right after it."""
+    fill: list = []
+    stroke: list = []
+    single: dict = {}
+    gs: list = []
+    depth = 0
+    for operands, op in seg:
+        o = op.decode() if isinstance(op, bytes) else str(op)
+        if o == "q":
+            depth += 1
+        elif o == "Q":
+            depth = max(0, depth - 1)
+        elif depth:
+            continue
+        elif o in ("g", "rg", "k", "cs"):
+            fill = [(operands, op)]
+        elif o in ("G", "RG", "K", "CS"):
+            stroke = [(operands, op)]
+        elif o in ("sc", "scn"):
+            fill = [x for x in fill if (x[1].decode() if isinstance(x[1], bytes) else x[1]) == "cs"] + [(operands, op)]
+        elif o in ("SC", "SCN"):
+            stroke = [x for x in stroke if (x[1].decode() if isinstance(x[1], bytes) else x[1]) == "CS"] + [(operands, op)]
+        elif o == "gs":
+            gs.append((operands, op))
+        elif o in _SINGLE:
+            single[o] = (operands, op)
+    return gs + list(single.values()) + fill + stroke
+
+
 def apply_page(reader: PdfReader, page, mods: list[dict], adds: list[dict]) -> int:
     """changes the page in place; returns how many things were changed"""
     _check_page(page)
@@ -397,16 +648,24 @@ def apply_page(reader: PdfReader, page, mods: list[dict], adds: list[dict]) -> i
             continue
         m = mods_by[o["id"]]
         seg = ops[o["a"]:o["b"] + 1]
+        if o["kind"] == "text" and m.get("glyphs") and not m.get("delete") and not (m.get("text") is not None and m["text"] != o.get("text")):
+            try:
+                seg = _glyph_edit(seg, o, m["glyphs"], o["a"], m.get("fill"))
+            except Exception:                         # a page with unusual text instructions: leave that text as it was rather than break the page
+                seg = ops[o["a"]:o["b"] + 1]
         changed += 1
+        leak = _leaks(ops[o["a"]:o["b"] + 1]) if o["kind"] == "text" else []
         if m.get("delete"):
-            pass
+            out += leak
         elif m.get("text") is not None and o["kind"] == "text" and m["text"] != o.get("text"):
+            out += leak
             bx = o["bbox"]
             overlay.append({"type": "text", "text": str(m["text"]), "x": bx[0] - x0 + float(m.get("dx", 0) or 0), "y": (y1 - bx[1]) + float(m.get("dy", 0) or 0),
                             "size": o.get("size") or 12, "color": m.get("fill") or o.get("fill") or "#000000", "font": o.get("font_family") or "", "from_pdf": True,
                             "_base": _fontname(page, o.get("font", ""))})
         else:
             out += _wrap(seg, o, m)
+            out += leak
         if m.get("dup"):
             d = m["dup"] if isinstance(m["dup"], dict) else {}
             dm = {k: v for k, v in m.items() if k not in ("dup", "delete", "text")}

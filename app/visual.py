@@ -14,10 +14,12 @@ from pathlib import Path
 from .service import UserError
 
 IMG_EXT = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff"}
-KINDS_TEXT = "PDF, PowerPoint (.pptx), SVG and picture files"
+KINDS_TEXT = "PDF, PowerPoint, SVG, pictures, and any other file Fathom can turn into pages or a picture (Word, Excel, e-books, camera RAW, HEIC, PSD, videos and more)"
+CONVERT_FIRST = {"image": ("png", "pdf"), "video": ("png", "pdf"), "mesh": ("png", "pdf"), "font": ("png", "pdf")}
 
 
 def kind_of(path: str) -> str:
+    """pdf | pptx | svg | image for the files the editor reads directly; "office" for every other file, which is turned into pages or a picture first"""
     ext = Path(path).suffix.lower()
     if ext == ".pdf":
         return "pdf"
@@ -27,7 +29,64 @@ def kind_of(path: str) -> str:
         return "svg"
     if ext in IMG_EXT:
         return "image"
-    raise UserError(f"The visual editor opens {KINDS_TEXT}. For Word, Excel and other files use Editor.")
+    return "office"
+
+
+def _converted(p: Path, fmt: str, target: str) -> Path:
+    """the file as `target` (pdf or png) made by Fathom's own converter, kept for next time"""
+    import hashlib
+    import shutil
+    import threading
+    from .convert import formats
+    from .convert.core import Ctx, Opts
+    from .convert.engines import convert_file
+    from .pdfview import _cache_dir
+    st = p.stat()
+    key = hashlib.sha1(f"{p}|{st.st_mtime_ns}|{st.st_size}|{target}".encode()).hexdigest()[:20]
+    out = _cache_dir() / f"{key}.{target}"
+    if out.exists():
+        return out
+    work = _cache_dir() / ("w_" + key)
+    try:
+        files, _n = convert_file(p, fmt, target, Opts(), Ctx(work, threading.Event()))
+        shutil.copyfile(files[0], out)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return out
+
+
+def _resolve(path: str) -> tuple[str, str]:
+    """(kind, path to work on). Any other file type becomes a PDF copy (documents, sheets, e-books, text...) or a PNG picture (photos, RAW, HEIC,
+    PSD, videos' first frame...), kept for next time, and is then edited like a PDF or a picture."""
+    k = kind_of(path)
+    if k != "office":
+        return k, path
+    p = Path(path)
+    if not p.is_file():
+        raise UserError("That file was not found.")
+    from .convert import formats
+    fmt = formats.detect(p)
+    cat = formats.category(fmt)
+    last: Exception | None = None
+    for target in CONVERT_FIRST.get(cat, ("pdf", "png")):
+        try:
+            out = _converted(p, fmt, target)
+            return ("pdf" if target == "pdf" else "image"), str(out)
+        except Exception as e:
+            last = e
+    msg = str(last or "")
+    if "LibreOffice" in msg or "office" in msg.lower():
+        raise UserError("This file needs LibreOffice to be shown as pages. The full Fathom install adds it (run Install-or-Update-Fathom.bat). "
+                        "Meanwhile use Editor to change the text itself.")
+    raise UserError(f"Fathom cannot show a {formats.label(fmt)} as pages or a picture, so there is nothing to drag around. ({msg[:140]})")
+
+
+def save_suffix(path: str) -> str | None:
+    """the extension a saved copy gets when it differs from the original (a Word file is saved as a PDF, a RAW photo as a PNG)"""
+    if kind_of(path) != "office":
+        return None
+    k, real = _resolve(path)
+    return Path(real).suffix.lower()
 
 
 def _rgb(h, default=(0, 0, 0)):
@@ -44,7 +103,8 @@ def _data_bytes(url: str) -> bytes | None:
 
 
 def open_page(path: str, n: int) -> dict:
-    k = kind_of(path)
+    orig_kind = kind_of(path)
+    k, path = _resolve(path)
     if k == "pdf":
         from . import pdfobjects
         r = pdfobjects.open_page(path, n)
@@ -55,11 +115,23 @@ def open_page(path: str, n: int) -> dict:
     else:
         r = _img_open(path)
     r["type"] = k
+    if orig_kind == "office":
+        r["note"] = ("Shown as a picture you can add layers to. Saving makes a PNG copy; the original file is not changed." if k == "image"
+                     else "Shown as pages. Saving makes a PDF copy; the original file is not changed. (To change the words inside a Word file itself, use Editor.)")
     return r
 
 
+def glyphs(path: str, n: int) -> dict:
+    """the boxes of single letters (PDF text only; the other kinds have text you can retype directly)"""
+    k, path = _resolve(path)
+    if k != "pdf":
+        return {"page": n, "objects": [], "count": 0, "note": "Single letters can be moved in PDF text only."}
+    from . import pdfobjects
+    return pdfobjects.glyph_boxes(path, n)
+
+
 def preview(path: str, pages: list[dict], page_no: int, dpi: int = 110) -> dict:
-    k = kind_of(path)
+    k, path = _resolve(path)
     mine = [pg for pg in pages if int(pg.get("page", 1)) == page_no]
     if k == "pdf":
         from . import pdfobjects
@@ -72,7 +144,8 @@ def preview(path: str, pages: list[dict], page_no: int, dpi: int = 110) -> dict:
 
 
 def save_edits(src: Path, dst: Path, pages: list[dict]) -> int:
-    k = kind_of(str(src))
+    k, real = _resolve(str(src))
+    src = Path(real)
     if k == "pdf":
         from . import pdfobjects
         return pdfobjects.save_edits(src, dst, pages)

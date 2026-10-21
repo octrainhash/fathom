@@ -746,6 +746,14 @@ def t_pdfobj_open(b: OpBody):
     return visual.open_page(b.paths[0], int(b.number or 1))
 
 
+@_post("/api/pdfobj/glyphs")
+def t_pdfobj_glyphs(b: OpBody):
+    from app import visual
+    if not b.paths:
+        raise service.UserError("Add a file first.")
+    return visual.glyphs(b.paths[0], int(b.number or 1))
+
+
 @_post("/api/pdfobj/preview")
 def t_pdfobj_preview(b: OpBody):
     from app import visual

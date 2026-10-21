@@ -569,6 +569,9 @@ def save(path: str, kind: str, payload: dict, output: dict, replace: bool) -> di
             changed = _pdf_save(p, tmp, payload.get("edits", []))
         elif kind == "pdfobj":
             from app import visual
+            suf = visual.save_suffix(str(p))
+            if suf:                                          # a Word file edited as pages is saved as a PDF, a RAW photo as a PNG
+                tmp = work / (p.stem + suf); suffix = suf
             changed = visual.save_edits(p, tmp, payload.get("pages", []))
         elif kind == "image":
             m = re.match(r"data:image/\w+;base64,(.*)$", str(payload.get("data", "")), re.S)

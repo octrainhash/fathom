@@ -51,11 +51,11 @@ function Test-Folder([string]$p, [string]$what) {
 # the parts Fathom can use. GB = about how much room each needs once installed.
 $Parts = @(
   @{ Key = 'python';      Title = 'Python 3.12';      Desc = 'Runs Fathom (always installed).';                                                Folder = 'Python312';      GB = 0.2;  Required = $true },
-  @{ Key = 'libreoffice'; Title = 'LibreOffice';      Desc = 'Open and convert Word, Excel, PowerPoint and old Office files (download about 350 MB).'; Folder = 'LibreOffice'; GB = 1.6 },
+  @{ Key = 'libreoffice'; Title = 'LibreOffice';      Desc = 'Open and convert Word, Excel, PowerPoint and old Office files, and open them as pages in the Visual editor (download about 350 MB).'; Folder = 'LibreOffice'; GB = 1.6 },
   @{ Key = 'calibre';     Title = 'Calibre';          Desc = 'Convert e-books such as EPUB, MOBI and AZW (download about 200 MB).';             Folder = 'Calibre2';       GB = 1.0 },
   @{ Key = '7zip';        Title = '7-Zip';            Desc = 'Open RAR, 7z and other archives (small).';                                       Folder = '7-Zip';          GB = 0.05 },
   @{ Key = 'ollama';      Title = 'Ollama';           Desc = 'The program that runs the free AI assistant on your own PC. No key, no account.'; Folder = 'Ollama';        GB = 1.2 },
-  @{ Key = 'models';      Title = 'AI assistant model'; Desc = 'The assistant''s brain, a free vision model (download about 3.3 GB, once).';     Folder = 'Ollama Models';  GB = 3.6 }
+  @{ Key = 'models';      Title = 'AI assistant model'; Desc = 'The assistant''s brain, a free vision model, plus the small model for Search by meaning (download about 3.6 GB, once).';     Folder = 'Ollama Models';  GB = 3.6 }
 )
 
 # ----------------------------------------------------------------------------------------------- the window
@@ -154,8 +154,8 @@ function Show-Wizard {
   $p0 = New-Page
   $p0.Controls.Add((New-Label ('Fathom finds things inside any file, converts any file to any other supported type, and has a big toolbox, a private AI assistant, a forensics lab and more. Everything runs on your own PC and nothing is sent to us.') 24 14 670 52))
   $p0.Controls.Add((New-Label 'What do you want to install?' 24 78 400 20)); $p0.Controls[$p0.Controls.Count - 1].Font = $fontBold
-  $ui.RAll = New-Radio 'Everything (recommended): Fathom, LibreOffice, Calibre, 7-Zip and the free AI assistant' 38 104 650 $true
-  $p0.Controls.Add((New-Label 'Needs about 12 GB free and a long first download (the assistant''s model is about 3.3 GB).' 60 126 620 20)); $p0.Controls[$p0.Controls.Count - 1].ForeColor = $gray
+  $ui.RAll = New-Radio 'Everything (recommended): Fathom, LibreOffice, Calibre, 7-Zip, the free AI assistant and Search by meaning' 38 104 650 $true
+  $p0.Controls.Add((New-Label 'One click does it all, nothing else to choose. Needs about 12 GB free and a long first download (the assistant''s models are about 3.6 GB). Anything already installed is skipped.' 60 126 620 20)); $p0.Controls[$p0.Controls.Count - 1].ForeColor = $gray
   $ui.RLite = New-Radio 'Smallest (Lite): Fathom only' 38 154 650 $false
   $p0.Controls.Add((New-Label 'Search, pictures, audio, video, PDF, text and data tools. Needs about 3 GB. You can add the rest later by running Fathom.bat full.' 60 176 620 36)); $p0.Controls[$p0.Controls.Count - 1].ForeColor = $gray
   $ui.RCustom = New-Radio 'Let me choose each part' 38 218 650 $false
