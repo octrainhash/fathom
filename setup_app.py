@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Fathom setup. Fathom.bat runs this with Python 3.12 (as administrator, first time only).
 
 It installs the Windows pieces Fathom needs, creates a private Python environment, installs the packages,
@@ -617,7 +618,7 @@ def _use_model(name: str) -> None:
 
 
 def _ollama_pull(exe: str, model: str, env: dict, big: bool = True) -> bool:
-    say(f"  Downloading the model {model} ({'about 2 to 3.5 GB' if big else 'small test model, about 400 MB'}; if its files are already here this takes seconds)...")
+    say(f"  Downloading the model {model} ({'about 2 to 3.5 GB' if big else ('small model, about 270 MB' if model == 'nomic-embed-text' else 'small test model, about 400 MB')}; if its files are already here this takes seconds)...")
     say("  > ollama pull " + model)
     rc = subprocess.call([exe, "pull", model], env=env)   # Ollama draws its own progress bar in this window
     if rc == 0 and _fix_links():
@@ -736,6 +737,13 @@ def setup_ollama() -> None:
         say("  !! Ollama could not be installed. Get it from https://ollama.com and run Fathom.bat repair, or choose another AI in Assistant > Settings.")
         return
     _ollama_make_ready(exe, model)
+    try:
+        # the small model behind "Search by meaning" (about 270 MB). Optional: if it fails, only that one tool is affected.
+        if _ollama_start(exe, dict(os.environ), 30) and not _ollama_has("nomic-embed-text"):
+            say("  Downloading the small model for 'Search by meaning' (about 270 MB)...")
+            _ollama_pull(exe, "nomic-embed-text", dict(os.environ), big=False)
+    except Exception as exc:
+        say(f"  ('Search by meaning' model not downloaded: {exc}. Run  ollama pull nomic-embed-text  later.)")
     try:
         # an earlier fallback (small test model, the slow thinking edition) is replaced by the proper model once that one works
         cur = store.load()["models"]["ollama"]

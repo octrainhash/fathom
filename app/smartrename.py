@@ -47,8 +47,14 @@ def sample(p: Path, limit: int = 1800) -> tuple[str, bytes | None]:
         if ext in TEXT_EXT:
             return p.read_bytes()[:limit * 4].decode("utf-8", "replace")[:limit], None
         if ext == ".pdf":
-            r = subprocess.run(["pdftotext", "-l", "2", "-q", str(p), "-"], capture_output=True, timeout=30)
-            return r.stdout.decode("utf-8", "replace")[:limit], None
+            try:
+                import fitz                              # PyMuPDF ships with Fathom, so no extra program is needed
+                with fitz.open(str(p)) as d:
+                    t = " ".join(pg.get_text() for pg in list(d)[:2])
+                return t[:limit], None
+            except ImportError:
+                r = subprocess.run(["pdftotext", "-l", "2", "-q", str(p), "-"], capture_output=True, timeout=60)
+                return r.stdout.decode("utf-8", "replace")[:limit], None
         if ext in IMG_EXT:
             from PIL import Image
             with Image.open(p) as im:

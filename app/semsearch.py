@@ -37,8 +37,14 @@ def read_text(p: Path, limit: int = CHUNK * MAX_CHUNKS) -> str:
         if ext in TEXT_EXT:
             return p.read_bytes()[:limit * 4].decode("utf-8", "replace")[:limit]
         if ext == ".pdf":
-            r = subprocess.run(["pdftotext", "-l", "12", "-q", str(p), "-"], capture_output=True, timeout=60)
-            return r.stdout.decode("utf-8", "replace")[:limit]
+            try:
+                import fitz                              # PyMuPDF ships with Fathom, so no extra program is needed
+                with fitz.open(str(p)) as d:
+                    t = " ".join(pg.get_text() for pg in list(d)[:12])
+                return t[:limit]
+            except ImportError:
+                r = subprocess.run(["pdftotext", "-l", "12", "-q", str(p), "-"], capture_output=True, timeout=60)
+                return r.stdout.decode("utf-8", "replace")[:limit]
     except Exception:
         pass
     return ""
