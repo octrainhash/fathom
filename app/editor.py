@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """The editor: open one file and change its content directly.
 
 * Text, code, web pages, CSV, JSON, settings ...  : a text editor (encoding and line endings are kept).
@@ -566,6 +567,9 @@ def save(path: str, kind: str, payload: dict, output: dict, replace: bool) -> di
             changed = _save_db(p, tmp, payload.get("tables", {}))
         elif kind == "pdf":
             changed = _pdf_save(p, tmp, payload.get("edits", []))
+        elif kind == "pdfobj":
+            from app import visual
+            changed = visual.save_edits(p, tmp, payload.get("pages", []))
         elif kind == "image":
             m = re.match(r"data:image/\w+;base64,(.*)$", str(payload.get("data", "")), re.S)
             if not m:

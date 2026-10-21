@@ -738,6 +738,22 @@ def ed_save(b: EdBody):
     return editor.save(b.path, b.kind, b.payload, b.output, b.replace)
 
 
+@_post("/api/pdfobj/open")
+def t_pdfobj_open(b: OpBody):
+    from app import visual
+    if not b.paths:
+        raise service.UserError("Add a file first.")
+    return visual.open_page(b.paths[0], int(b.number or 1))
+
+
+@_post("/api/pdfobj/preview")
+def t_pdfobj_preview(b: OpBody):
+    from app import visual
+    if not b.paths:
+        raise service.UserError("Add a file first.")
+    return visual.preview(b.paths[0], b.rows, int(b.number or 1), int(b.options.get("dpi", 110)))
+
+
 @_post("/api/editor/sheet")
 def ed_sheet(b: EdBody):
     return editor.sheet_cells(b.path, b.sheet, max(1, b.r0), max(1, b.c0))
