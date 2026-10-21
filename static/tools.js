@@ -491,20 +491,61 @@
       apply.onclick = async () => { try { const r = await post("/api/tools/rename/apply", { rows }); F.toast(`Renamed ${r.renamed} file${r.renamed === 1 ? "" : "s"}` + (r.failed.length ? `, ${r.failed.length} failed` : "")); F.refreshUndo(); apply.hidden = true; tbl.replaceChildren(); } catch (e) { F.toast(e.message); } };
     } });
 
-  F.addTool({ id: "semsearch", group: "search", icon: "🧭", label: "Search by meaning", blurb: "Find notes and documents by what they are about, not the exact words. Runs on this computer.", el: F.makeView("semsearch"),
+  F.addTool({ id: "semsearch", group: "search", icon: "🧭", label: "Search by meaning", blurb: "Find notes and documents by what they are about, not the exact words. Every setting is yours. Runs on this computer.", el: F.makeView("semsearch"),
     build: (sec) => {
       const view = F.standardView("semsearch", { output: false }); sec.replaceWith(view.sec); F.tools.find((x) => x.id === "semsearch").el = view.sec; view.sec.classList.add("on");
       const main = view.main;
-      main.append(F.titleBlock("Search by meaning", "Step 1: add your folders on the left and press “Learn these files” (text, notes and PDFs; only new or changed files are read again). Step 2: describe what you want. Needs the small embedding model once: in a terminal run  ollama pull nomic-embed-text . Nothing leaves this computer."));
-      const learn = h("button", { class: "btn", tip: "Reads the files on the left and remembers what they are about. Run it again later: it only does new or changed files." }, "Learn these files");
-      const box = h("div"), q = h("input", { type: "text", placeholder: "e.g. the letter about my rent increase", style: "width:100%", "aria-label": "What are you looking for" });
-      const find = h("button", { class: "primary", tip: "Searches the files you have learned inside the folders on the left." }, "Search"), res = h("div");
-      main.append(h("div", { class: "row" }, learn), box, h("div", { class: "card-box", style: "margin-top:16px" }, q), h("div", { class: "row", style: "margin-top:12px" }, find), res);
-      const panel = new F.JobPanel(box, { noun: "file", summary: false }); panel.onDone = () => { learn.disabled = false; };
-      learn.onclick = async () => { if (!F.needFiles()) return; learn.disabled = true; try { const r = await post("/api/tools/semindex", { paths: F.state.sources, recursive: true }); panel.start(r.job); } catch (e) { learn.disabled = false; F.toast(e.message); } };
-      const go = async () => { try { const r = await post("/api/tools/semsearch", { paths: F.state.sources, text: q.value, number: 12 });
-        res.replaceChildren(r.hits.length ? h("table", { class: "tbl" }, h("tr", {}, ["File", "Best matching passage"].map((x) => h("th", { text: x }))), ...r.hits.map((x) => h("tr", {}, h("td", {}, h("a", { href: "#", text: x.name, tip: "Show this file", onclick: (e) => { e.preventDefault(); F.reveal(x.path); } })), h("td", { text: x.snippet })))) : h("div", { class: "hint", text: r.indexed ? "Nothing close was found in these folders." : "Nothing has been learned yet. Press “Learn these files” first." })); } catch (e) { F.toast(e.message); } };
+      main.append(F.titleBlock("Search by meaning", "Step 1: add your folders on the left and press “Learn these files”. Step 2: describe what you want in your own words. Every result comes with a picture: the best sentence is highlighted, circled and pointed at. Needs one small model, once: in a terminal run  ollama pull nomic-embed-text . Nothing leaves this computer."));
+      const learnForm = F.form([
+        { id: "groups", type: "multi", label: "Kinds of files to learn", value: ["notes", "data", "web", "code", "pdf"], options: [{ v: "notes", l: "Notes (txt, md, rtf, tex)" }, { v: "data", l: "Data and subtitles (csv, json, xml, yaml, log, srt)" }, { v: "web", l: "Web pages (html)" }, { v: "code", l: "Code (py, js)" }, { v: "pdf", l: "PDF documents" }], tip: "Only the ticked kinds are read when you press Learn. Scanned PDFs have no text; run them through OCR first." },
+        { id: "size", type: "choice", label: "Passage size", value: "medium", options: [{ v: "small", l: "Small", s: "pin-points one idea", tip: "About 500 characters per passage. Best for exact facts in long files." }, { v: "medium", l: "Medium", s: "a good balance", tip: "About 900 characters per passage." }, { v: "large", l: "Large", s: "keeps more context", tip: "About 1500 characters per passage. Best for essays and reports." }] },
+        { id: "max_chunks", type: "number", label: "Passages remembered per file", value: 10, tip: "Longer files are read up to this many passages. More means better coverage and a bigger memory file." },
+        { id: "pdf_pages", type: "number", label: "PDF pages to read", value: 12, tip: "Only the first pages of each PDF are learned. Raise it for long books." },
+        { id: "model", type: "text", label: "Embedding model", value: "", placeholder: "nomic-embed-text", tip: "The Ollama model that turns text into numbers. Leave empty for the default. If you change it, files are learned again." }]);
+      const searchForm = F.form([
+        { id: "limit", type: "number", label: "Most results to show", value: 12, tip: "Between 1 and 100." },
+        { id: "min", type: "range", label: "Smallest match to show", min: 0, max: 95, value: 30, fmt: (v) => v + "%", tip: "Low: shows even loose matches.\nHigh: shows only close matches." },
+        { id: "per_file", type: "select", label: "Matches per file", value: "best", options: [{ v: "best", l: "Only the best one" }, { v: "top3", l: "Up to three" }], tip: "Up to three lets one long file show several places." },
+        { id: "gf", type: "multi", label: "Only look in", value: ["notes", "data", "web", "code", "pdf"], options: [{ v: "notes", l: "Notes" }, { v: "data", l: "Data" }, { v: "web", l: "Web pages" }, { v: "code", l: "Code" }, { v: "pdf", l: "PDFs" }], tip: "Untick a kind to leave it out of this search." },
+        { id: "name_contains", type: "text", label: "File name must contain", placeholder: "optional, e.g. invoice", tip: "Narrows the search to files whose name has this text." },
+        { id: "proofs", type: "number", label: "Proof pictures (0 = none)", value: 6, tip: "How many of the top results get a picture. Each one marks the best sentence." },
+        { id: "arrows", type: "check", label: "Point at the match with an arrow", value: true },
+        { id: "highlight", type: "color", label: "Highlight colour", value: "#ffeb3b", options: [{ v: "#ffeb3b", l: "Yellow" }, { v: "#7cf29a", l: "Green" }, { v: "#7dd3fc", l: "Sky" }, { v: "#ffb4e6", l: "Pink" }, { v: "#ffb347", l: "Orange" }], tip: "The colour painted behind the best sentence." },
+        { id: "circle", type: "color", label: "Circle and arrow colour", value: "#e83e28", options: [{ v: "#e83e28", l: "Red" }, { v: "#2563eb", l: "Blue" }, { v: "#16a34a", l: "Green" }, { v: "#9333ea", l: "Purple" }, { v: "#111111", l: "Black" }], tip: "The colour of the circle and the arrow." }]);
+      main.append(h("div", { class: "card-box" }, h("h3", { text: "1. What to learn" }), learnForm.el), h("div", { class: "card-box", style: "margin-top:16px" }, h("h3", { text: "2. How to show the results" }), searchForm.el));
+      const learn = h("button", { class: "btn", tip: "Reads the files on the left and remembers what they are about. Run it again later: only new or changed files are done." }, "Learn these files");
+      const forget = h("button", { class: "btn small", tip: "Deletes what was learned about the files in the folders on the left. The files themselves are not touched." }, "Forget these folders");
+      const wipe = h("button", { class: "btn small danger", tip: "Deletes everything this tool has learned, for every folder. Your files are not touched." }, "Clear everything");
+      const stat = h("div", { class: "hint" }), box = h("div");
+      const q = h("input", { type: "text", placeholder: "e.g. the letter about my rent going up", style: "width:100%", "aria-label": "What are you looking for" });
+      const find = h("button", { class: "primary", tip: "Searches the files you have learned inside the folders on the left." }, "Search");
+      const csv = h("button", { class: "btn small", hidden: true, tip: "Saves these results as a spreadsheet file (CSV)." }, "Save results as CSV");
+      const res = h("div"), proofHost = h("div");
+      main.append(h("div", { class: "row", style: "margin-top:16px" }, learn, forget, wipe), stat, box, h("div", { class: "card-box", style: "margin-top:16px" }, h("h3", { text: "3. Ask" }), q), h("div", { class: "row", style: "margin-top:12px" }, find, csv), res, proofHost);
+      const lv = () => { const v = learnForm.values(); return { groups: v.groups, size: v.size, max_chunks: +v.max_chunks || 10, pdf_pages: +v.pdf_pages || 12, model: v.model || "" }; };
+      const refresh = async () => { try { const r = await post("/api/tools/semstatus", { paths: F.state.sources || [] }); stat.textContent = r.files ? `Learned so far: ${r.files} files (${r.passages} passages, ${(r.bytes / 1048576).toFixed(1)} MB). ${F.state.sources && F.state.sources.length ? r.here + " of them are in the folders on the left." : ""}` : "Nothing learned yet."; } catch (e) { stat.textContent = ""; } };
+      refresh();
+      const panel = new F.JobPanel(box, { noun: "file", summary: false }); panel.onDone = () => { learn.disabled = false; refresh(); };
+      learn.onclick = async () => { if (!F.needFiles()) return; learn.disabled = true; try { const r = await post("/api/tools/semindex", { paths: F.state.sources, recursive: true, options: lv() }); panel.start(r.job); } catch (e) { learn.disabled = false; F.toast(e.message); } };
+      forget.onclick = async () => { if (!F.needFiles()) return; try { const r = await post("/api/tools/semforget", { paths: F.state.sources, flag: false }); F.toast(`Forgot ${r.forgotten} file${r.forgotten === 1 ? "" : "s"}`); refresh(); } catch (e) { F.toast(e.message); } };
+      wipe.onclick = async () => { if (!confirm("Forget everything Search by meaning has learned? Your files are not touched.")) return; try { const r = await post("/api/tools/semforget", { paths: [], flag: true }); F.toast(`Forgot ${r.forgotten} file${r.forgotten === 1 ? "" : "s"}`); res.replaceChildren(); proofHost.replaceChildren(); refresh(); } catch (e) { F.toast(e.message); } };
+      let last = [];
+      const go = async () => {
+        try {
+          const v = searchForm.values();
+          const r = await post("/api/tools/semsearch", { paths: F.state.sources || [], text: q.value, options: { limit: +v.limit || 12, min_score: (+v.min || 0) / 100, per_file: v.per_file, groups: v.gf, name_contains: v.name_contains || "", proofs: +v.proofs || 0, arrows: !!v.arrows, highlight: v.highlight, circle: v.circle, index: lv() } });
+          last = r.hits; csv.hidden = !last.length;
+          res.replaceChildren(r.hits.length ? h("table", { class: "tbl" }, h("tr", {}, ["Match", "File", "Best matching passage", ""].map((x) => h("th", { text: x }))), ...r.hits.map((x) => h("tr", {},
+            h("td", { text: x.percent + "%", tip: "How close this passage is to what you asked. 100% would be identical meaning." }),
+            h("td", {}, h("b", { text: x.name }), x.page ? h("small", { text: " · page " + x.page }) : null, h("div", { class: "hint", text: x.folder })),
+            h("td", { text: x.snippet }),
+            h("td", {}, h("button", { class: "btn small", tip: "Opens this file.", onclick: () => F.openFile(x.path) }, "Open"), " ", h("button", { class: "btn small", tip: "Shows the folder that holds this file.", onclick: () => F.reveal(x.path) }, "Show folder"), " ", h("button", { class: "btn small", tip: "Copies the full path of this file.", onclick: () => { try { navigator.clipboard.writeText(x.path); F.toast("Path copied"); } catch (e) { F.toast(x.path); } } }, "Copy path"))))) : h("div", { class: "hint", text: r.indexed ? "Nothing close enough was found. Lower “Smallest match to show”, or learn more files." : "Nothing has been learned yet. Press “Learn these files” first." }));
+          proofHost.replaceChildren(); const pg = F.proofGallery(r.hits.map((x) => x.proof && { ...x.proof, note: x.proof.note + (x.best ? " · " + x.best : "") }), { first: 6 }); if (pg) proofHost.append(pg);
+        } catch (e) { F.toast(e.message); }
+      };
       find.onclick = go; q.onkeydown = (e) => { if (e.key === "Enter") go(); };
+      csv.onclick = () => { const esc = (s) => '"' + String(s == null ? "" : s).replace(/"/g, '""') + '"'; const rows = [["match_percent", "file", "folder", "page", "passage"], ...last.map((x) => [x.percent, x.name, x.folder, x.page || "", x.snippet])];
+        const a = h("a", { href: URL.createObjectURL(new Blob(["﻿" + rows.map((r) => r.map(esc).join(",")).join("\r\n")], { type: "text/csv" })), download: "search-by-meaning.csv" }); document.body.append(a); a.click(); a.remove(); };
     } });
   } catch (e) { console.warn("Fathom: the extra PDF tools could not load", e); }
 })();

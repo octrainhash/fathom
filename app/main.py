@@ -362,13 +362,25 @@ def t_smartrename_rows(job_id: str):
 @_post("/api/tools/semindex")
 def t_semindex(b: OpBody):
     from app import semsearch
-    return semsearch.index_start(b.paths, b.recursive)
+    return semsearch.index_start(b.paths, b.recursive, b.options or {})
 
 
 @_post("/api/tools/semsearch")
 def t_semsearch(b: OpBody):
     from app import semsearch
-    return semsearch.search(b.text, b.paths, int(b.number or 12))
+    return semsearch.search(b.text, b.paths, b.options or {})
+
+
+@_post("/api/tools/semstatus")
+def t_semstatus(b: OpBody):
+    from app import semsearch
+    return semsearch.status(b.paths)
+
+
+@_post("/api/tools/semforget")
+def t_semforget(b: OpBody):
+    from app import semsearch
+    return semsearch.forget(b.paths, bool(b.flag))
 
 
 @_post("/api/tools/rename/preview")
