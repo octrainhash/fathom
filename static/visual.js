@@ -9,7 +9,7 @@
       build: (sec) => {
         const view = F.standardView("visual", { output: true }); sec.replaceWith(view.sec); F.tools.find((x) => x.id === "visual").el = view.sec; view.sec.classList.add("on");
         const main = view.main;
-        main.append(F.titleBlock("Visual editor", "Add almost any file on the left and press “Open”. PDF, PowerPoint, SVG and pictures open as they are; Word, Excel, e-books, text and other documents are shown as pages and saved as a PDF copy (their text re-flows), and camera RAW, HEIC, PSD and similar pictures, or the first frame of a video, open as a picture you can add layers to. Click an object to select it (Shift adds more, or drag a box around several). Hold Alt while clicking a box to pick it together with everything inside it. Text can be picked as a whole line, a word or a single letter (the Text: buttons), so a lone comma or one letter moves on its own. Objects made of several pieces (like an arrow's stem and head) are grouped so they move as one: select several and press Group (Ctrl+G) to tie your own together, the “Move: whole / parts” button chooses whether a click picks the entire group or one piece (Ctrl-click does the opposite for one click), and Ungroup splits it for good. Drag to move, pull the corner dot to resize, and use the panel to change colours and text. Double-click text to retype it. Your original file is never changed; Save makes a copy."));
+        main.append(F.titleBlock("Visual editor", "Add almost any file on the left and press “Open”. PDF, PowerPoint, SVG and pictures open as they are. Word, Excel, OpenDocument, older Office files and text files are shown as pages and your changes are saved into the same kind of file (Word keeps text you move or add fixed on the page; Excel and text save retyped or deleted text). E-books and other documents are saved as a PDF copy, and camera RAW, HEIC, PSD and similar pictures, or the first frame of a video, open as a picture you can add layers to. Click an object to select it (Shift adds more, or drag a box around several). Hold Alt while clicking a box to pick it together with everything inside it. Text can be picked as a whole line, a word or a single letter (the Text: buttons), so a lone comma or one letter moves on its own. Objects made of several pieces (like an arrow's stem and head) are grouped so they move as one: select several and press Group (Ctrl+G) to tie your own together, the “Move: whole / parts” button chooses whether a click picks the entire group or one piece (Ctrl-click does the opposite for one click), and Ungroup splits it for good. Drag to move, pull the corner dot to resize, and use the panel to change colours and text. Double-click text to retype it. Your original file is never changed; Save makes a copy."));
         const S = { u: 1, type: "", path: "", total: 0, page: 1, info: null, pages: {}, sel: new Set(), hist: [], fut: [], tool: "select", k: 1.4, seq: 0, together: true, mode: "whole", gc: {} };
         const pg = () => (S.pages[S.page] ||= { mods: {}, adds: [], groups: [] });
         // ---- groups: parts that move together (an arrow's stem and head, a logo made of pieces). A click on one part selects the whole group.
@@ -32,6 +32,7 @@
         const modeLab = h("span", { class: "hint", style: "margin:0 2px 0 8px", text: "Text:" });
         const paintModes = () => modeBtns.forEach((b) => b.classList.toggle("on", b.dataset.mode === S.mode));
         async function setMode(m) {
+          if (m !== "whole" && S.info && S.info.native) { F.toast("Single words and letters can be moved in PDF files. Word, Excel and text files keep their own layout, so move whole lines (or retype them) here."); return; }
           if (m !== "whole" && S.type && S.type !== "pdf") { F.toast("Single letters can be moved in PDF text. In PowerPoint and SVG the text itself is editable: double-click it to retype it."); return; }
           if (!S.info) { S.mode = m; paintModes(); return; }
           S.mode = m; S.sel.clear(); paintModes();
@@ -55,12 +56,73 @@
           { id: "lw", type: "number", label: "Line thickness", value: 2, tip: "In points. 0.5 is thin, 4 is bold." },
           { id: "size", type: "number", label: "Text size", value: 16, tip: "In points. Only for text." },
           { id: "text", type: "textarea", label: "Text", rows: 3, tip: "Retypes the selected text. New text is written in a standard font (Helvetica, Times or Courier)." }], () => fromForm());
+        // ---- the text style bar: font, size, colour, bold, italic, underline, alignment (for the selected letters while typing, otherwise for the whole selected text)
+        const fontSel = h("select", { class: "btn small", style: "max-width:200px", tip: "Font. While typing, select some letters first to change only those; otherwise it changes the whole selected text. Shows the exact font of what you selected." });
+        const sizeIn = h("input", { type: "number", min: 1, max: 600, step: 0.5, class: "btn small", style: "width:72px", tip: "Size in points." });
+        const nofocus = (e) => e.preventDefault();
+        const mkBtn = (txt, tip, st) => h("button", { class: "btn small", style: st || "", tip, onmousedown: nofocus }, txt);
+        const bB = mkBtn("B", "Bold (Ctrl+B)", "font-weight:800"), bI = mkBtn("I", "Italic (Ctrl+I)", "font-style:italic;font-family:serif"), bU = mkBtn("U", "Underline (Ctrl+U)", "text-decoration:underline");
+        const colIn = h("input", { type: "color", value: "#111111", tip: "Text colour.", style: "width:38px;height:30px;padding:0;border:1px solid var(--line);border-radius:6px;background:none;cursor:pointer" });
+        const alBtns = [["left", "⇤", "Align left"], ["center", "↔", "Centre"], ["right", "⇥", "Align right"]].map(([v, l, tip]) => h("button", { class: "btn small", tip, "data-al": v, onmousedown: nofocus, onclick: () => applyStyle({ align: v }) }, l));
+        const tbar = h("div", { class: "row", style: "gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px" }, h("span", { class: "hint", style: "margin:0 4px 0 0", text: "Text style:" }), fontSel, sizeIn, bB, bI, bU, colIn, ...alBtns);
+        const FONTS = { list: [], loaded: false };
+        async function loadFonts() { if (FONTS.loaded) return; FONTS.loaded = true; try { FONTS.list = (await api("/api/fonts")).fonts || []; } catch { FONTS.list = ["Arial", "Times New Roman", "Courier New", "Georgia", "Verdana", "Tahoma", "Trebuchet MS", "Comic Sans MS", "Impact", "Calibri", "Cambria"].map((name) => ({ name, common: true })); } paintFontList(); }
+        function paintFontList(current) {
+          const cur = current != null ? current : fontSel.value; fontSel.replaceChildren(h("option", { value: "", text: "(mixed)", hidden: true }));
+          const common = FONTS.list.filter((f) => f.common), rest = FONTS.list.filter((f) => !f.common), names = new Set(FONTS.list.map((f) => f.name));
+          if (cur && !names.has(cur)) fontSel.append(h("option", { value: cur, text: cur + " (in the file)" }));
+          const g1 = h("optgroup", { label: "Common" }), g2 = h("optgroup", { label: "All fonts on this computer" });
+          for (const f of common) g1.append(h("option", { value: f.name, text: f.name, style: `font-family:"${f.name}"` })); for (const f of rest) g2.append(h("option", { value: f.name, text: f.name, style: `font-family:"${f.name}"` }));
+          fontSel.append(g1); if (rest.length) fontSel.append(g2); fontSel.value = cur || "";
+        }
+        function paintStyle(st) {
+          if (!st) { const a = textAdds()[0]; if (a) { const r = runsOf(a)[0]; st = { font: r.font, size: r.size, color: r.color, b: r.b, i: r.i, u: r.u }; } else { const p = [...S.sel][0] && kp([...S.sel][0]); const o = p && p.t === "o" && S.info ? S.info.objects.find((x) => x.id === p.id) : null; if (o && o.kind === "text") { const r = (o.runs && o.runs[0]) || { font: "Arial", size: o.size || 12, color: o.fill || "#000000" }; st = { font: r.font, size: r.size, color: r.color, b: !!r.b, i: !!r.i, u: false }; } else st = S.last; } }
+          if (fontSel.value !== (st.font || "")) paintFontList(st.font || "");
+          if (document.activeElement !== sizeIn) sizeIn.value = st.size != null ? st.size : "";
+          colIn.value = st.color || "#111111"; bB.classList.toggle("on", !!st.b); bI.classList.toggle("on", !!st.i); bU.classList.toggle("on", !!st.u);
+          const a = textAdds()[0], al = (inline && inline.kind === "rich" ? addOf(inline.key) : a) ; alBtns.forEach((b) => b.classList.toggle("on", !!al && (al.align || "left") === b.dataset.al));
+        }
+        function fixSizes(ed, px) {
+          ed.querySelectorAll('font[size="7"]').forEach((f) => { const sp = document.createElement("span"); sp.style.fontSize = px + "px"; while (f.firstChild) sp.append(f.firstChild); f.replaceWith(sp); });
+          ed.querySelectorAll("span").forEach((sp) => { if (/xxx-large/.test(sp.style.fontSize)) sp.style.fontSize = px + "px"; });
+        }
+        function applyInline(patch) {
+          const ed = inline.ed, a = addOf(inline.key); const sel = getSelection(); if (!(sel.rangeCount && ed.contains(sel.anchorNode))) { ed.focus(); if (inline.range) { sel.removeAllRanges(); sel.addRange(inline.range); } }
+          document.execCommand("styleWithCSS", false, true);
+          if (patch.font) document.execCommand("fontName", false, patch.font);
+          if (patch.color) document.execCommand("foreColor", false, patch.color);
+          for (const [k, cmd] of [["b", "bold"], ["i", "italic"], ["u", "underline"]]) if (k in patch && document.queryCommandState(cmd) !== patch[k]) document.execCommand(cmd);
+          if (patch.size) { inline.px = patch.size * K(); document.execCommand("fontSize", false, "7"); fixSizes(ed, inline.px); }
+          if (patch.align && a) { a.align = patch.align; ed.style.textAlign = patch.align; }
+          ed.dispatchEvent(new Event("input")); if (sel.rangeCount) inline.range = sel.getRangeAt(0).cloneRange(); paintStyle(selStyle(ed));
+        }
+        function applyStyle(patch) {
+          for (const k of ["font", "size", "color", "b", "i", "u"]) if (k in patch) S.last[k] = patch[k];
+          if (inline && inline.kind === "rich") return applyInline(patch);
+          const keys = [...S.sel]; const out = new Set(); let did = false; snap();
+          for (let key of keys) {
+            const p = kp(key); if (p.t === "o") { const nk = liftText(key); if (!nk) continue; key = nk; }
+            const a = addOf(key); if (!a || a.type !== "text") { out.add(key); continue; }
+            if (patch.align) { a.align = patch.align; a.w = Math.max(a.w || 0, measureText(a).w); }
+            const pr = {}; for (const k of ["font", "size", "color", "b", "i", "u"]) if (k in patch) pr[k] = patch[k];
+            if (Object.keys(pr).length) a.runs = runsOf(a).map((r) => ({ ...r, ...pr }));
+            a.text = plainOf(runsOf(a)); if (patch.size) a.size = patch.size; if (patch.color) a.color = patch.color; out.add(key); did = true;
+          }
+          if (!did) { S.hist.pop(); return; }
+          S.sel = out; commit(); syncForm();
+        }
+        function toggle(k) { const st = (inline && inline.kind === "rich" ? selStyle(inline.ed) : null) || S.last; const cur = textAdds()[0] && !(inline && inline.kind === "rich") ? runsOf(textAdds()[0])[0][k] : st[k]; applyStyle({ [k]: !cur }); }
+        fontSel.onchange = () => { if (fontSel.value) applyStyle({ font: fontSel.value }); };
+        sizeIn.onchange = () => { const v = parseFloat(sizeIn.value); if (v > 0) applyStyle({ size: v }); };
+        colIn.oninput = () => applyStyle({ color: colIn.value });
+        bB.onclick = () => toggle("b"); bI.onclick = () => toggle("i"); bU.onclick = () => toggle("u");
+        loadFonts(); setTimeout(() => paintStyle(null), 0);
         const note = h("div", { class: "hint", text: "Nothing selected." });
         const stage = h("div", { style: "position:relative;display:inline-block;touch-action:none;user-select:none;margin-top:10px;border:1px solid var(--line);background:#fff;line-height:0" });
         const img = h("img", { alt: "PDF page", draggable: "false", style: "display:block;width:100%" });
         const ov = h("div", { style: "position:absolute;inset:0" });
         stage.append(img, ov);
-        main.append(bar, h("div", { style: "display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap" }, h("div", { style: "overflow:auto;max-width:100%" }, stage), h("div", { class: "card-box", style: "min-width:260px;flex:1" }, note, form.el)));
+        main.append(bar, tbar, h("div", { style: "display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap" }, h("div", { style: "overflow:auto;max-width:100%" }, stage), h("div", { class: "card-box", style: "min-width:260px;flex:1" }, note, form.el)));
         const status = h("div", { class: "hint" }); main.append(status);
 
         function setTool(t) { S.tool = t; toolBtns.forEach((b) => b.setAttribute("aria-pressed", b.dataset.tool === t)); stage.style.cursor = t === "select" ? "default" : "crosshair"; }
@@ -105,6 +167,17 @@
         };
 
         // ---- geometry of every object as the screen shows it
+        // ---- rich text: every stretch of a text box can have its own font, size, colour, bold, italic and underline
+        const mctx = document.createElement("canvas").getContext("2d");
+        const runsOf = (a) => (a.runs && a.runs.length ? a.runs : [{ t: String(a.text || ""), font: a.font || "Arial", size: +a.size || 14, color: a.color || a.fill || "#111111", b: !!a.bold, i: !!a.italic, u: false }]);
+        const plainOf = (runs) => runs.map((r) => r.t).join("");
+        function measureText(a) {
+          const lines = [[]]; for (const r of runsOf(a)) { const parts = String(r.t).split("\n"); parts.forEach((t, k) => { if (k) lines.push([]); if (t !== "") lines[lines.length - 1].push({ ...r, t }); }); }
+          let W = 1, Hh = 0;
+          for (const ln of lines) { let w = 0, big = 0; for (const r of ln) { mctx.font = `${r.i ? "italic " : ""}${r.b ? "bold " : ""}${r.size}px "${r.font}", sans-serif`; w += mctx.measureText(r.t).width; big = Math.max(big, r.size); } W = Math.max(W, w); Hh += (big || (runsOf(a)[0] || {}).size || 14) * 1.2; }
+          return { w: W, h: Hh };
+        }
+        const mergeRuns = (runs) => { const out = []; for (const r of runs) { const l = out[out.length - 1]; if (l && l.font === r.font && l.size === r.size && l.color === r.color && l.b === r.b && l.i === r.i && l.u === r.u) l.t += r.t; else out.push({ ...r }); } return out; };
         const boxOf = (key) => {
           const [k, id] = [key[0], key[0] === "g" ? 0 : +key.slice(2)];
           if (k === "g") {
@@ -116,7 +189,7 @@
           if (k === "o") { const o = S.info.objects.find((x) => x.id === id); if (!o) return null; const m = pg().mods[id] || {}; if (m.delete) return null; return { x: o.x + (m.dx || 0), y: o.y + (m.dy || 0), w: o.w * (m.sx || 1), h: o.h * (m.sy || 1), o, m }; }
           const a = pg().adds.find((x) => x.id === id); if (!a) return null;
           if (a.type === "line" || a.type === "arrow") return { x: Math.min(a.x, a.x2), y: Math.min(a.y, a.y2), w: Math.abs(a.x2 - a.x), h: Math.abs(a.y2 - a.y), a };
-          if (a.type === "text") { const ls = String(a.text || "").split("\n"); return { x: a.x, y: a.y, w: Math.max(...ls.map((l) => l.length)) * a.size * 0.55 + 2, h: ls.length * a.size * 1.3, a }; }
+          if (a.type === "text") { const m = measureText(a); return { x: a.x, y: a.y, w: Math.max(m.w, a.w || 0) + 2, h: m.h, a }; }
           return { x: a.x, y: a.y, w: a.w, h: a.h, a };
         };
         const allKeys = () => {
@@ -128,7 +201,7 @@
         const K = () => S.k;
 
         function draw() {
-          ov.replaceChildren();
+          const keepEd = inline && (inline.ed || inline.ta); [...ov.children].forEach((c) => { if (c !== keepEd) c.remove(); });
           for (const key of allKeys()) {
             const b = boxOf(key); if (!b) continue;
             if (S.mode === "words" && key[0] === "g") continue;           // words are drawn below
@@ -172,6 +245,7 @@
         async function loadPage(n) {
           try {
             const r = await post("/api/pdfobj/open", { paths: [S.path], number: n });
+            if (r && r.objects) r.objects = r.objects.filter((o) => !o.hidden);   // clipped away or only spaces: nothing to pick
             S.info = r; S.page = n; S.total = r.total; S.type = r.type; S.sel.clear(); try { autoGroup(); } catch { /* grouping is a bonus, never block opening */ } if (n === 1 || !S.kset) { S.k = Math.min(1.4, 900 / r.w); S.kset = true; } S.u = Math.max(1, r.w / 600); stage.style.width = r.w * K() + "px"; if (n === 1 && S.u > 1) { form.set("lw", Math.round(2 * S.u)); form.set("size", Math.round(16 * S.u)); } draw(); refresh(); if (S.mode !== "whole") ensureGlyphs().then((ok) => { if (S.page === n) draw(); }); if (r.note) F.toast(r.note);
             if (r.capped) F.toast("This page has a very large number of objects; only the first ones can be picked.");
           } catch (e) { F.toast(e.message); }
@@ -191,7 +265,14 @@
             if (gp) { const ob = gdata() && gdata().byObj[gp.id]; if (!ob) return; if (v.fill && v.fill !== S.syncFill) t.fill = v.fill; const sz = +v.size; if (sz && Math.abs(sz - S.syncSize) > 0.01) t.sx = Math.max(0.2, Math.min(8, sz / (ob.size || 12))); return; }
             const ob = add ? null : S.info.objects.find((x) => x.id === +key.slice(2)), kind = add ? add.type : ob.kind;
             if (ob && ob.textable && kind !== "text") { if (v.text !== (ob.text || "")) t.text = v.text; }
-            if (kind === "text") { t.fill = v.fill; if (add) { t.color = v.fill; t.size = +v.size || 14; } if (v.text !== "" && v.text != null && (add || v.text !== (S.info.objects.find((x) => x.id === +key.slice(2)).text || ""))) t.text = v.text; }
+            if (kind === "text") {
+              if (add) {
+                if (v.fill && v.fill !== S.syncFill) { add.runs = runsOf(add).map((r) => ({ ...r, color: v.fill })); add.color = v.fill; S.syncFill = v.fill; }
+                if (+v.size && +v.size !== S.syncSize) { add.runs = runsOf(add).map((r) => ({ ...r, size: +v.size })); add.size = +v.size; S.syncSize = +v.size; }
+                if (v.text != null && v.text !== S.syncText) { add.runs = [{ ...runsOf(add)[0], t: v.text }]; S.syncText = v.text; }
+                add.text = plainOf(runsOf(add));
+              } else { t.fill = v.fill; if (v.text !== "" && v.text != null && v.text !== (S.info.objects.find((x) => x.id === +key.slice(2)).text || "")) t.text = v.text; }
+            }
             else if (kind === "image" || kind === "group") { /* pictures keep their pixels */ }
             else { t.fill = v.nofill ? "" : v.fill; t.stroke = v.nostroke ? "" : v.stroke; t.lw = +v.lw || 1; if (add && (add.type === "line" || add.type === "arrow")) { t.stroke = v.stroke; t.fill = ""; } }
           });
@@ -203,8 +284,10 @@
           if (key && key[0] === "g") { const b = boxOf(key); if (b) { const ob = b.g.ob; S.syncFill = b.g.gm.fill || ob.fill || "#000000"; S.syncSize = Math.round((ob.size || 12) * (b.g.gm.sx || 1) * 100) / 100; form.set("fill", S.syncFill); form.set("nofill", false); form.set("size", S.syncSize); form.set("text", ""); } }
           else if (key) { const b = boxOf(key); const src = b.a || { ...b.o, ...(b.m || {}) };
             if (src.fill) form.set("fill", src.fill); form.set("nofill", !src.fill && (b.a ? b.a.type !== "text" : b.o.kind === "shape")); if (src.stroke) form.set("stroke", src.stroke); form.set("nostroke", !src.stroke && (b.a ? b.a.type !== "text" : b.o.kind === "shape"));
-            if (src.lw != null) form.set("lw", src.lw); if (src.size) form.set("size", src.size); form.set("text", src.text || ""); }
-          fromForm.lock = false;
+            if (src.lw != null) form.set("lw", src.lw);
+            if (b.a && b.a.type === "text") { const rs = runsOf(b.a); S.syncFill = rs[0].color; S.syncSize = rs[0].size; S.syncText = plainOf(rs); form.set("fill", S.syncFill); form.set("size", S.syncSize); form.set("text", S.syncText); }
+            else { if (src.size) form.set("size", src.size); form.set("text", src.text || ""); } }
+          fromForm.lock = false; paintStyle(null);
         }
         bDel.onclick = () => { if (!S.sel.size) return; snap(); for (const key of S.sel) { const p = kp(key), id = p.id; if (p.t === "o") modFor(id).delete = true; else if (p.t === "g") gmodFor(id, p.gi).delete = true; else pg().adds = pg().adds.filter((a) => a.id !== id); } S.sel.clear(); tidyGroups(); commit(); };
         bDup.onclick = () => { if (!S.sel.size) return; snap(); const ns = new Set(); const wasGroup = grp().some((g) => g.length === S.sel.size && g.every((k) => S.sel.has(k))); for (const key of S.sel) { const p = kp(key), id = p.id; if (p.t === "g") { gmodFor(id, p.gi).dup = { dx: 14 * S.u, dy: 14 * S.u }; } else if (p.t === "o") { const m = modFor(id); m.dup = { dx: 14 * S.u, dy: 14 * S.u }; } else { const a = pg().adds.find((x) => x.id === id); if (a) { const c = { ...a, id: ++S.nid, x: a.x + 14 * S.u, y: a.y + 14 * S.u }; if (a.x2 != null) { c.x2 = a.x2 + 14 * S.u; c.y2 = a.y2 + 14 * S.u; } pg().adds.push(c); ns.add("a:" + c.id); } } } S.sel = ns.size ? ns : S.sel; if (wasGroup && ns.size > 1) grp().push([...ns]); commit(); F.toast("Copied. Copies of original objects can be moved after you save and reopen the file."); };
@@ -254,11 +337,12 @@
         ov.addEventListener("pointerdown", (e) => {
           if (!S.info) return; ov.setPointerCapture(e.pointerId); try { view.sec.focus({ preventScroll: true }); } catch { /* keys just will not work */ }
           const p = pos(e), hd = e.target.dataset && e.target.dataset.handle, key = e.target.dataset && e.target.dataset.key;
+          { const now = Date.now(); if (key && S.tool === "select" && !e.shiftKey && lastDown.key === key && now - lastDown.t < 450) { lastDown = { key: "", t: 0 }; setTimeout(() => dbl(key), 0); return; } lastDown = { key: key || "", t: now }; }
           if (hd) { snap(); const k1 = [...S.sel][0]; const gp = k1[0] === "g" ? kp(k1) : null; drag = { type: "resize", hd, key: k1, p, b: boxOf(k1), sx0: gp ? (gmodGet(gp.id, gp.gi).sx || 1) : 1 }; return; }
           if (S.tool !== "select") {
             snap(); const id = ++S.nid, t = S.tool, v = form.values(), u = S.u;
             const base = { id, type: t, x: p[0], y: p[1], stroke: v.nostroke ? "" : v.stroke, fill: v.nofill ? "" : v.fill, lw: +v.lw || 2 };
-            if (t === "text") { Object.assign(base, { text: "Text", size: (+v.size || 16), color: v.fill && v.fill !== "#dbeafe" ? v.fill : "#111111", fill: "" }); pg().adds.push(base); S.sel = new Set(["a:" + id]); setTool("select"); syncForm(); commit(); return; }
+            if (t === "text") { const L = S.last, runs = [{ t: "Text", font: L.font, size: L.size, color: L.color, b: L.b, i: L.i, u: L.u }]; Object.assign(base, { text: "Text", runs, align: "left", size: L.size, color: L.color, fill: "" }); pg().adds.push(base); S.sel = new Set(["a:" + id]); setTool("select"); syncForm(); commit(); setTimeout(() => startRich("a:" + id), 0); return; }
             if (t === "line" || t === "arrow") { Object.assign(base, { x2: p[0], y2: p[1], stroke: v.stroke, fill: "" }); } else Object.assign(base, { w: 1, h: 1 });
             pg().adds.push(base); S.sel = new Set(["a:" + id]); drag = { type: "draw", id, p }; return;
           }
@@ -289,12 +373,119 @@
           if (d.type === "draw") setTool("select");
           syncForm(); commit();
         });
-        ov.addEventListener("pointerup", () => setTimeout(() => { try { view.sec.focus({ preventScroll: true }); } catch { /* ok */ } }, 0));   // so the keyboard shortcuts work after a click
+        ov.addEventListener("pointerup", () => setTimeout(() => { try { const ae = document.activeElement; if (!inline && !(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) view.sec.focus({ preventScroll: true }); } catch { /* ok */ } }, 0));   // so the keyboard shortcuts work after a click
+        // ---- typing straight into a text box on the page (double-click it, or just add one with the Text tool)
+        let inline = null, lastDown = { key: "", t: 0 };
+        S.last = { font: "Arial", size: 16, color: "#111111", b: false, i: false, u: false };
+        const addOf = (key) => { const p = kp(key); return p.t === "a" ? pg().adds.find((x) => x.id === p.id) : null; };
+        const textAdds = () => [...S.sel].map(addOf).filter((a) => a && a.type === "text");
+        // an existing line of text (PDF, SVG, slide) becomes a text box of its own the moment you edit it, keeping its position, size, colour and fonts
+        function liftText(key) {
+          const p = kp(key); if (p.t !== "o") return key; const o = S.info.objects.find((x) => x.id === p.id); if (!o || o.kind !== "text") return null;
+          snap(); const m = modFor(p.id), id = ++S.nid;
+          const runs = (o.runs && o.runs.length ? o.runs : [{ t: o.text || "", font: "Arial", size: o.size || 12, color: o.fill || "#000000", b: false, i: false, u: false }]).map((r) => ({ ...r, t: String(r.t) }));
+          const sz = Math.max(...runs.map((r) => +r.size || 12));
+          pg().adds.push({ id, type: "text", x: o.x + (m.dx || 0) + (o.ix || 0), y: (o.base != null ? o.base - 0.95 * sz : o.y + (o.iy || 0) + (0.9 - 0.95) * sz) + (m.dy || 0), runs, align: "left", text: plainOf(runs), size: sz, color: runs[0].color, from: p.id });
+          m.delete = true; const nk = "a:" + id; pg().groups = grp().map((g) => g.map((k) => (k === key ? nk : k))); S.sel = new Set([nk]); return nk;
+        }
+        function dbl(key) {
+          S.sel = new Set([key]); const p = kp(key), o = p.t === "o" ? S.info.objects.find((x) => x.id === p.id) : null;
+          if (o && o.kind === "text" && !(S.pages[S.page].mods[p.id] || {}).text) { const nk = liftText(key); if (nk) { syncForm(); draw(); startRich(nk); return; } }
+          syncForm(); draw(); if (startInline(key)) return; const ta = form.el.querySelector("textarea"); ta && ta.focus();
+        }
+        function endInline(keep) {
+          if (!inline) return; const cur = inline; inline = null; document.removeEventListener("pointerdown", cur.outside, true);
+          if (cur.kind === "rich") { const a = addOf(cur.key); if (a) { if (!keep) { a.runs = cur.before; a.text = plainOf(a.runs); } else { const m = measureText(a); if (a.align && a.align !== "left") a.w = Math.max(a.w || 0, m.w); } } cur.ed.remove(); syncForm(); commit(); return; }
+          const { ta, key, before } = cur; if (!keep) setText(key, before); ta.onblur = null; ta.remove(); commit();
+        }
+        function setText(key, text) {
+          const p = kp(key);
+          if (p.t === "a") { const a = pg().adds.find((x) => x.id === p.id); if (a) { a.text = text; a.runs = [{ ...runsOf(a)[0], t: text }]; } }
+          else if (p.t === "o") modFor(p.id).text = text;
+        }
+        function textOf(key) {
+          const p = kp(key);
+          if (p.t === "a") { const a = pg().adds.find((x) => x.id === p.id); return a ? plainOf(runsOf(a)) : ""; }
+          if (p.t === "o") { const o = S.info.objects.find((x) => x.id === p.id), m = pg().mods[p.id] || {}; return m.text != null ? m.text : (o && o.text) || ""; }
+          return "";
+        }
+        function canType(key) {
+          const p = kp(key); if (p.t === "a") { const a = pg().adds.find((x) => x.id === p.id); return !!a && a.type === "text"; }
+          if (p.t === "o") { const o = S.info.objects.find((x) => x.id === p.id); return !!o && (o.kind === "text" || !!o.textable) && S.type !== "image"; }
+          return false;
+        }
+        // --- the rich editor: a real editable box on the page where any selected stretch can be given its own style
+        const rgbHex = (c) => { const m = /(\d+)[, ]+(\d+)[, ]+(\d+)/.exec(c || ""); return m ? "#" + [m[1], m[2], m[3]].map((v) => (+v).toString(16).padStart(2, "0")).join("") : "#000000"; };
+        function nodeStyle(node, root) {
+          const el = node.nodeType === 3 ? node.parentElement : node, cs = getComputedStyle(el); let u = false;
+          for (let n = el; n && n !== root.parentElement; n = n.parentElement) { if ((getComputedStyle(n).textDecorationLine || "").includes("underline")) { u = true; break; } }
+          return { font: (cs.fontFamily.split(",")[0] || "Arial").replace(/["']/g, "").trim(), size: Math.round(parseFloat(cs.fontSize) / K() * 10) / 10, color: rgbHex(cs.color), b: parseInt(cs.fontWeight, 10) >= 600 || cs.fontWeight === "bold", i: cs.fontStyle === "italic", u };
+        }
+        function domToRuns(ed) {
+          const out = []; const walk = (n) => { if (n.nodeType === 3) { const t = n.nodeValue.replace(/​/g, ""); if (t) out.push({ t, ...nodeStyle(n, ed) }); } else if (n.nodeName === "BR") out.push({ t: "\n", ...(out.length ? { ...out[out.length - 1] } : nodeStyle(ed, ed)) }); else n.childNodes.forEach(walk); };
+          ed.childNodes.forEach(walk); return mergeRuns(out);
+        }
+        function selStyle(ed) {
+          const sel = getSelection(); if (!sel.rangeCount || !ed.contains(sel.anchorNode)) return null; const r = sel.getRangeAt(0);
+          if (r.collapsed) return nodeStyle(r.startContainer, ed);
+          const w = document.createTreeWalker(ed, NodeFilter.SHOW_TEXT), seen = []; let n;
+          while ((n = w.nextNode())) { if (r.intersectsNode(n) && n.nodeValue.replace(/​/g, "") !== "") seen.push(nodeStyle(n, ed)); }
+          if (!seen.length) return nodeStyle(r.startContainer, ed);
+          const out = { ...seen[0] }; for (const st of seen) for (const k in out) if (out[k] !== st[k]) out[k] = null; return out;
+        }
+        function fillSpan(sp, r) { sp.style.fontFamily = `"${r.font}", sans-serif`; sp.style.fontSize = r.size * K() + "px"; sp.style.color = r.color; sp.style.fontWeight = r.b ? "bold" : "normal"; sp.style.fontStyle = r.i ? "italic" : "normal"; sp.style.textDecoration = r.u ? "underline" : "none"; }
+        function startRich(key) {
+          endInline(true); const a = addOf(key); if (!a || a.type !== "text") return false; const b = boxOf(key); if (!b) return false;
+          snap(); const before = JSON.parse(JSON.stringify(runsOf(a)));
+          if (!a.runs) a.runs = JSON.parse(JSON.stringify(before));
+          const ed = h("div", { contenteditable: "true", spellcheck: "false", style: `position:absolute;left:${a.x * K() - 2}px;top:${a.y * K() - 2}px;min-width:${Math.max(b.w * K() + 12, 60)}px;box-sizing:border-box;margin:0;padding:2px;white-space:pre;line-height:1.2;text-align:${a.align || "left"};background:rgba(255,255,255,.9);border:2px solid #7c6cff;border-radius:4px;outline:none;z-index:5;cursor:text;color:#111` });
+          for (const r of a.runs) { const sp = document.createElement("span"); fillSpan(sp, r); sp.textContent = r.t; ed.append(sp); }
+          const outside = (e) => { if (inline && !ed.contains(e.target) && !tbar.contains(e.target) && !(e.target.closest && e.target.closest(".fx-menu"))) endInline(true); };
+          inline = { kind: "rich", ed, key, before, outside }; document.addEventListener("pointerdown", outside, true);
+          let t = 0, lastRange = null;
+          const sync = () => { if (inline && inline.px) fixSizes(ed, inline.px); const runs = domToRuns(ed); if (runs.length) { a.runs = runs; a.text = plainOf(runs); const f = runs[0]; S.last = { font: f.font, size: f.size, color: f.color, b: f.b, i: f.i, u: f.u }; } else { a.runs = [{ ...a.runs[0], t: "" }]; a.text = ""; } clearTimeout(t); t = setTimeout(refresh, 350); };
+          ed.addEventListener("input", sync);
+          ed.addEventListener("paste", (e) => { e.preventDefault(); document.execCommand("insertText", false, (e.clipboardData || window.clipboardData).getData("text/plain")); });
+          ed.addEventListener("keydown", (e) => {
+            e.stopPropagation();
+            if (e.key === "Escape") { e.preventDefault(); endInline(false); }
+            else if (e.key === "Enter") { e.preventDefault(); if (e.ctrlKey || e.metaKey) { endInline(true); return; } document.execCommand("insertText", false, "\n"); const sel = getSelection(), n = sel.anchorNode; if (n && n.nodeType === 3 && sel.anchorOffset === n.nodeValue.length && !n.nodeValue.endsWith("\n\n")) { document.execCommand("insertText", false, "​"); sel.modify("move", "backward", "character"); } sync(); }
+            else if ((e.ctrlKey || e.metaKey) && "biu".includes(e.key.toLowerCase())) { e.preventDefault(); toggle(e.key.toLowerCase()); }
+          });
+          ed.addEventListener("pointerdown", (e) => e.stopPropagation());
+          document.addEventListener("selectionchange", () => { if (inline && inline.ed === ed) { const sel = getSelection(); if (sel.rangeCount && ed.contains(sel.anchorNode)) { lastRange = sel.getRangeAt(0).cloneRange(); inline.range = lastRange; paintStyle(selStyle(ed)); } } });
+          ov.append(ed); ed.focus(); const sel = getSelection(), rg = document.createRange();
+          rg.selectNodeContents(ed); if (before.length === 1 && before[0].t === "Text") { sel.removeAllRanges(); sel.addRange(rg); } else { rg.collapse(false); sel.removeAllRanges(); sel.addRange(rg); }
+          note.textContent = "Typing in the box. Select any letters or words and use the font, size, colour, B / I / U controls above to style just that part. Esc undoes the typing; click away or press Ctrl+Enter when done.";
+          paintStyle(selStyle(ed)); return true;
+        }
+        const startInline_plain = null;
+        function startInline(key) {
+          const p = kp(key); if (p.t === "a") { const a = addOf(key); return !!a && a.type === "text" && startRich(key); }
+          endInline(true); if (!canType(key)) return false; const b = boxOf(key); if (!b) return false;
+          const size = ((b.o && b.o.size) || Math.max(10, b.h * 0.8)) * K(), col = (b.o && b.o.fill) || "#111";
+          snap(); const before = textOf(key);
+          const ta = h("textarea", { spellcheck: "false", style: `position:absolute;left:${b.x * K() - 2}px;top:${b.y * K() - 2}px;min-width:${Math.max(b.w * K() + 8, 120)}px;width:${Math.max(b.w * K() + 8, 120)}px;height:${Math.max(b.h * K() + 8, size * 1.5)}px;box-sizing:border-box;margin:0;padding:2px;font:${size}px/1.25 sans-serif;color:${col};background:rgba(255,255,255,.92);border:2px solid #7c6cff;border-radius:4px;resize:none;overflow:hidden;z-index:5` });
+          ta.value = before; inline = { kind: "plain", ta, key, before };
+          const fit = () => { ta.style.height = "auto"; ta.style.height = Math.max(ta.scrollHeight + 2, size * 1.5) + "px"; };
+          let t = 0;
+          ta.addEventListener("input", () => { setText(key, ta.value); fit(); clearTimeout(t); t = setTimeout(refresh, 350); });
+          ta.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Escape") { e.preventDefault(); endInline(false); } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); endInline(true); } });
+          ta.addEventListener("pointerdown", (e) => e.stopPropagation());
+          ta.onblur = () => endInline(true);
+          ov.append(ta); fit(); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+          note.textContent = "Typing in the box. Press Esc to undo the typing, or click away (or Ctrl+Enter) when you are done.";
+          return true;
+        }
+        function warnOffPage() {
+          for (const key of S.sel) { const b = boxOf(key); if (!b || !S.info) continue;
+            if (b.x < -2 || b.y < -2 || b.x + b.w > S.info.w + 2 || b.y + b.h > S.info.h + 2) { F.toast("Part of this is outside the page, so that part will be cut off in the saved file. Drag it back inside, or make it smaller."); return; } }
+        }
         function nudge(dx, dy) {
           for (const key of S.sel) { const p = kp(key), id = p.id; if (p.t === "g") { const m = gmodFor(id, p.gi); m.dx = Math.round(((m.dx || 0) + dx) * 100) / 100; m.dy = Math.round(((m.dy || 0) + dy) * 100) / 100; } else if (p.t === "o") { const m = modFor(id); m.dx = Math.round(((m.dx || 0) + dx) * 100) / 100; m.dy = Math.round(((m.dy || 0) + dy) * 100) / 100; } else { const a = pg().adds.find((x) => x.id === id); if (a) { a.x += dx; a.y += dy; if (a.x2 != null) { a.x2 += dx; a.y2 += dy; } } } }
-          commit();
+          commit(); warnOffPage();
         }
-        ov.addEventListener("dblclick", (e) => { const key = e.target.dataset && e.target.dataset.key; if (!key) return; S.sel = new Set([key]); syncForm(); draw(); const ta = form.el.querySelector("textarea"); ta && ta.focus(); });
+        ov.addEventListener("dblclick", (e) => { const key = e.target.dataset && e.target.dataset.key; if (key) dbl(key); });
         view.sec.addEventListener("keydown", (e) => {
           if (!S.info || /^(INPUT|TEXTAREA|SELECT)$/.test((e.target.tagName || ""))) return;
           if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); bDel.onclick(); }
@@ -310,7 +501,7 @@
           if (!S.info) return F.toast("Open a PDF first.");
           const pages = Object.entries(S.pages).map(([n, p]) => ({ page: +n, mods: Object.values(p.mods), adds: p.adds })).filter((p) => p.mods.length || p.adds.length);
           if (!pages.length) return F.toast("Nothing has been changed yet.");
-          try { const r = await post("/api/editor/save", { path: S.path, kind: "pdfobj", payload: { pages }, output: F.outputBody(), replace: false }); F.toast("Saved a copy"); status.replaceChildren(h("span", { text: "Saved: " + r.path + "  " }), h("button", { class: "btn small", onclick: () => F.openFile(r.path) }, "Open"), " ", h("button", { class: "btn small", onclick: () => F.reveal(r.path) }, "Show folder")); }
+          try { const r = await post("/api/editor/save", { path: S.path, kind: "pdfobj", payload: { pages }, output: F.outputBody(), replace: false }); F.toast(r.notes && r.notes.length ? "Saved. Note: " + r.notes.join(" ") : "Saved a copy"); status.replaceChildren(h("span", { text: "Saved: " + r.path + "  " }), h("button", { class: "btn small", onclick: () => F.openFile(r.path) }, "Open"), " ", h("button", { class: "btn small", onclick: () => F.reveal(r.path) }, "Show folder")); }
           catch (e) { F.toast(e.message); }
         };
       } });

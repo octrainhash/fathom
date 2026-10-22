@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Proof pictures: for anything Fathom changes or adds, a BEFORE and an AFTER picture where the changed thing is highlighted in yellow and circled
 in red (the same marking the Find tool uses). Pictures are kept with the other saved results (Saved results in the top bar clears them)."""
 from __future__ import annotations
@@ -210,7 +211,7 @@ def render_pdf_page(path: Path, pno: int, dpi: int = 110) -> tuple[Image.Image, 
     if exe:
         try:
             with tempfile.TemporaryDirectory() as d:
-                subprocess.run([exe, "-f", str(pno + 1), "-l", str(pno + 1), "-r", str(dpi), "-png", str(path), str(Path(d) / "p")], capture_output=True, timeout=60)
+                subprocess.run([exe, "-f", str(pno + 1), "-l", str(pno + 1), "-r", str(dpi), "-cropbox", "-png", str(path), str(Path(d) / "p")], capture_output=True, timeout=60)
                 f = next(Path(d).glob("p*.png"), None)
                 if f:
                     return Image.open(f).convert("RGB"), dpi / 72.0

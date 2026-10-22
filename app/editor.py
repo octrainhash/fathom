@@ -549,6 +549,7 @@ def save(path: str, kind: str, payload: dict, output: dict, replace: bool) -> di
     work.mkdir(parents=True, exist_ok=True)
     tmp = work / p.name
     suffix = p.suffix
+    notes: list = []
     try:
         changed = 0
         if kind == "text":
@@ -573,6 +574,8 @@ def save(path: str, kind: str, payload: dict, output: dict, replace: bool) -> di
             if suf:                                          # a Word file edited as pages is saved as a PDF, a RAW photo as a PNG
                 tmp = work / (p.stem + suf); suffix = suf
             changed = visual.save_edits(p, tmp, payload.get("pages", []))
+            from app import office_native
+            notes = office_native.take_notes()
         elif kind == "image":
             m = re.match(r"data:image/\w+;base64,(.*)$", str(payload.get("data", "")), re.S)
             if not m:
@@ -620,7 +623,7 @@ def save(path: str, kind: str, payload: dict, output: dict, replace: bool) -> di
             if suffix != p.suffix:
                 final = p.with_suffix(suffix)
         shutil.move(str(tmp), str(final))
-        return {"path": str(final), "changed": changed, "replaced": replaced, "proof": shots}
+        return {"path": str(final), "changed": changed, "replaced": replaced, "proof": shots, "notes": notes}
     finally:
         shutil.rmtree(work, ignore_errors=True)
 

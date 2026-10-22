@@ -145,6 +145,14 @@ def capabilities():
     return {**service.capabilities(), "warm": _warm}
 
 
+@app.get("/api/fonts", dependencies=[Depends(guard)])
+def fonts():
+    """the fonts installed on this computer, for the font drop-down of the Visual editor"""
+    from app import richtext
+
+    return {"fonts": richtext.families()}
+
+
 @app.post("/api/pick", dependencies=[Depends(guard)])
 def pick(body: PickBody):
     from app.picker import pick as pick_paths

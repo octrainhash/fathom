@@ -10,6 +10,7 @@ import io
 import math
 import re
 from pathlib import Path
+import shutil
 
 from .service import UserError
 
@@ -30,6 +31,50 @@ def kind_of(path: str) -> str:
     if ext in IMG_EXT:
         return "image"
     return "office"
+
+
+DOC_LIKE = {".docx", ".doc", ".dot", ".dotx", ".odt", ".ott", ".rtf", ".docm"}
+SHEET_LIKE = {".xlsx", ".xls", ".ods", ".xlsm", ".xlsb"}
+SLIDE_LIKE = {".ppt", ".pps", ".odp", ".ppsx", ".pot", ".potx", ".pptm"}
+
+
+def native_of(path: str) -> str | None:
+    """which of Fathom's own writers saves this file in ITS OWN format: docx | xlsx | text | None (then a PDF or picture copy is saved)"""
+    p = Path(path)
+    ext = p.suffix.lower()
+    if ext in DOC_LIKE:
+        return "docx"
+    if ext in SHEET_LIKE:
+        return "xlsx"
+    if ext in SLIDE_LIKE:
+        return "slides"
+    try:
+        from .convert import formats
+        if p.is_file() and formats.category(formats.detect(p)) == "text":
+            return "text"
+    except Exception:
+        pass
+    return None
+
+
+def _modern_twin(p: Path, ext: str) -> Path:
+    """the same file as a modern format (.doc -> .docx, .xls -> .xlsx, .ppt -> .pptx), made by LibreOffice and kept for next time"""
+    import hashlib
+    from .pdfview import _cache_dir
+    from . import office_native
+    st = p.stat()
+    key = hashlib.sha1(f"{p}|{st.st_mtime_ns}|{st.st_size}|{ext}".encode()).hexdigest()[:20]
+    out = _cache_dir() / f"{key}.{ext}"
+    if out.exists():
+        return out
+    tmp = _cache_dir() / ("t_" + key)
+    tmp.mkdir(parents=True, exist_ok=True)
+    try:
+        got = office_native.soffice_convert(p, ext, tmp)
+        shutil.copyfile(got, out)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return out
 
 
 def _converted(p: Path, fmt: str, target: str) -> Path:
@@ -64,6 +109,8 @@ def _resolve(path: str) -> tuple[str, str]:
     p = Path(path)
     if not p.is_file():
         raise UserError("That file was not found.")
+    if native_of(path) == "slides":                    # older / OpenDocument slides: edited as the PowerPoint twin, written back in their own format
+        return "pptx", str(_modern_twin(p, "pptx"))
     from .convert import formats
     fmt = formats.detect(p)
     cat = formats.category(fmt)
@@ -85,6 +132,8 @@ def save_suffix(path: str) -> str | None:
     """the extension a saved copy gets when it differs from the original (a Word file is saved as a PDF, a RAW photo as a PNG)"""
     if kind_of(path) != "office":
         return None
+    if native_of(path):
+        return None
     k, real = _resolve(path)
     return Path(real).suffix.lower()
 
@@ -104,10 +153,16 @@ def _data_bytes(url: str) -> bytes | None:
 
 def open_page(path: str, n: int) -> dict:
     orig_kind = kind_of(path)
+    orig_path = path
     k, path = _resolve(path)
     if k == "pdf":
         from . import pdfobjects
         r = pdfobjects.open_page(path, n)
+        try:
+            from . import office_native
+            office_native.fill_text(r["objects"], office_native.page_lines(path, n))
+        except Exception:
+            pass
     elif k == "pptx":
         r = _pptx_open(path, n)
     elif k == "svg":
@@ -115,7 +170,16 @@ def open_page(path: str, n: int) -> dict:
     else:
         r = _img_open(path)
     r["type"] = k
-    if orig_kind == "office":
+    if orig_kind == "office" and native_of(orig_path) in ("docx", "xlsx", "text"):
+        r["native"] = True
+    nat = native_of(orig_path) if orig_kind == "office" else None
+    if orig_kind == "office" and k == "pptx":
+        r["note"] = "Saved back as the same kind of file."
+    elif orig_kind == "office" and nat:
+        r["note"] = {"docx": "Shown as pages. Saving writes the changes into the Word file itself (same file type): retyped, deleted and recoloured text, text you move or add (kept in place on the page), boxes, arrows and pictures you add.",
+                     "xlsx": "Shown as pages. Saving writes retyped or deleted cell text into the workbook itself (same file type). Cells stay on the grid, so moving things is not saved.",
+                     "text": "Shown as pages. Saving writes retyped or deleted lines into the text file itself (same file type)."}[nat]
+    elif orig_kind == "office":
         r["note"] = ("Shown as a picture you can add layers to. Saving makes a PNG copy; the original file is not changed." if k == "image"
                      else "Shown as pages. Saving makes a PDF copy; the original file is not changed. (To change the words inside a Word file itself, use Editor.)")
     return r
@@ -143,8 +207,48 @@ def preview(path: str, pages: list[dict], page_no: int, dpi: int = 110) -> dict:
     return _img_preview(path, mine)
 
 
+def _save_native(src: Path, dst: Path, pages: list[dict], nat: str) -> int:
+    """write the edits into the file's own format (see office_native); older formats are edited as a modern twin and converted back"""
+    import tempfile
+    from . import office_native as on
+    ext = src.suffix.lower()
+    k, pdf = _resolve(str(src))
+    if nat == "text":
+        return on.text_write(src, dst, pdf, pages)
+    modern = ".docx" if nat == "docx" else ".xlsx"
+    writer = on.docx_write if nat == "docx" else on.xlsx_write
+    if ext == modern:
+        return writer(src, dst, pdf, pages)
+    tmp = Path(tempfile.mkdtemp(prefix="fathom_nat_"))
+    try:
+        twin = _modern_twin(src, modern[1:])
+        mid = tmp / ("mid" + modern)
+        n = writer(twin, mid, pdf, pages)
+        back = on.soffice_convert(mid, ext[1:], tmp / "back") if (tmp / "back").mkdir() is None else None
+        shutil.copyfile(back, dst)
+        return n
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def save_edits(src: Path, dst: Path, pages: list[dict]) -> int:
+    nat = native_of(str(src)) if kind_of(str(src)) == "office" else None
+    if nat in ("docx", "xlsx", "text"):
+        return _save_native(Path(src), Path(dst), pages, nat)
     k, real = _resolve(str(src))
+    if nat == "slides":                                  # slides: edit the PowerPoint twin, then convert it back to .ppt / .odp
+        import tempfile
+        from . import office_native as on
+        tmp = Path(tempfile.mkdtemp(prefix="fathom_nat_"))
+        try:
+            mid = tmp / "mid.pptx"
+            n = _pptx_write(Path(real), mid, pages)
+            (tmp / "back").mkdir()
+            back = on.soffice_convert(mid, Path(src).suffix.lower()[1:], tmp / "back")
+            shutil.copyfile(back, dst)
+            return n
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
     src = Path(real)
     if k == "pdf":
         from . import pdfobjects
@@ -212,11 +316,24 @@ def _img_layer(base, a: dict):
         else:
             d.line([x, y, x2, y2], fill=col, width=lw)
     elif t == "text":
-        size = max(6, int(float(a.get("size") or 16)))
-        f = textsnap.get_font(size)
-        col = _rgb(a.get("color") or a.get("fill") or "#000000")
-        for k, line in enumerate(str(a.get("text", "")).split("\n")):
-            d.text((x, y + k * size * 1.25), line, font=f, fill=col)
+        from . import richtext
+        runs, align = richtext.normalize(a)
+        lay, _W, _H = richtext.layout(runs, float(a.get("w", 0) or 0) or None, align)
+        for ln, dx, bl, _w in lay:
+            cx = x + dx
+            for r in ln:
+                px = max(6, int(round(r["size"])))
+                fp = richtext.font_path(r["font"], r["b"], r["i"])
+                try:
+                    f = richtext._pil_font(fp, px) if fp else textsnap.get_font(px)
+                except Exception:
+                    f = textsnap.get_font(px)
+                col = _rgb(r["color"])
+                d.text((cx, y + bl), r["t"], font=f, fill=col, anchor="ls")
+                wd = d.textlength(r["t"], font=f)
+                if r.get("u"):
+                    d.line([cx, y + bl + px * 0.12, cx + wd, y + bl + px * 0.12], fill=col, width=max(1, int(px * 0.06)))
+                cx += wd
     elif t == "image":
         raw = _data_bytes(a.get("data", ""))
         if raw and w > 0 and h > 0:
@@ -278,6 +395,34 @@ def _pptx_open(path: str, n: int) -> dict:
                 kind = "group"
         except Exception:
             pass
+        runs = None
+        ix = iy = 0.0
+        if kind == "shape" and sh.has_text_frame and sh.text_frame.text.strip():
+            try:
+                textbox = sh.shape_type == 17 or (not sh.is_placeholder and sh.fill.type is None and sh.line.fill.type in (None, 5))
+            except Exception:
+                textbox = False
+            if textbox:
+                try:
+                    tf = sh.text_frame
+                    ix, iy = (tf.margin_left if tf.margin_left is not None else 91440) / EMU, (tf.margin_top if tf.margin_top is not None else 45720) / EMU
+                    runs = []
+                    for pi_, para in enumerate(tf.paragraphs):
+                        if pi_:
+                            runs.append({"t": "\n", "font": "Calibri", "size": 18.0, "color": "#000000", "b": False, "i": False, "u": False})
+                        for r in para.runs:
+                            f = r.font
+                            col = "#000000"
+                            try:
+                                if f.color is not None and f.color.type is not None:
+                                    col = "#" + str(f.color.rgb)
+                            except Exception:
+                                pass
+                            runs.append({"t": r.text, "font": f.name or "Calibri", "size": float(f.size.pt) if f.size else 18.0, "color": col, "b": bool(f.bold), "i": bool(f.italic), "u": bool(f.underline)})
+                    if runs:
+                        kind = "text"
+                except Exception:
+                    runs = None
         if kind == "shape":
             try:
                 if sh.fill.type == 1:
@@ -297,7 +442,8 @@ def _pptx_open(path: str, n: int) -> dict:
         except Exception:
             pass
         objs.append({"id": i, "kind": kind, "x": round(sh.left / EMU, 2), "y": round(sh.top / EMU, 2), "w": round(sh.width / EMU, 2), "h": round(sh.height / EMU, 2),
-                     "fill": fill, "stroke": stroke, "lw": lw, "text": text, "size": None, "textable": bool(sh.has_text_frame) if kind == "shape" else False})
+                     "fill": fill, "stroke": stroke, "lw": lw, "text": text if kind != "text" else sh.text_frame.text, "size": (max(r["size"] for r in runs) if runs else None),
+                     "textable": bool(sh.has_text_frame) if kind == "shape" else False, "runs": runs, "ix": ix, "iy": iy, "top": bool(runs)})
     return {"page": n, "total": total, "w": prs.slide_width / EMU, "h": prs.slide_height / EMU, "objects": objs, "capped": False}
 
 
@@ -418,14 +564,22 @@ def _pptx_add(slide, a: dict) -> None:
             ln = c.line._get_or_add_ln()
             ln.append(etree.SubElement(ln, "{http://schemas.openxmlformats.org/drawingml/2006/main}tailEnd", type="triangle"))
     elif t == "text":
-        size = float(a.get("size") or 16)
-        lines = str(a.get("text", "")).split("\n")
-        tb = slide.shapes.add_textbox(Emu(int(x)), Emu(int(y)), Emu(int(max(len(l) for l in lines) * size * 0.6 * EMU + 20 * EMU)), Emu(int(len(lines) * size * 1.4 * EMU)))
+        from pptx.enum.text import PP_ALIGN
+        from . import richtext
+        runs, align = richtext.normalize(a)
+        lay, Wd, Hd = richtext.layout(runs, float(a.get("w", 0) or 0) or None, align)
+        tb = slide.shapes.add_textbox(Emu(int(x)), Emu(int(y)), Emu(int((Wd + 6) * EMU)), Emu(int(Hd * EMU)))
         tf = tb.text_frame
         tf.word_wrap = False
-        for k, ln in enumerate(lines):
+        tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
+        for k, (ln, _dx, _b, _w) in enumerate(lay):
             p = tf.paragraphs[0] if k == 0 else tf.add_paragraph()
-            r = p.add_run(); r.text = ln; r.font.size = Pt(size); r.font.color.rgb = RGBColor(*_rgb(a.get("color") or a.get("fill") or "#000000"))
+            p.alignment = {"left": PP_ALIGN.LEFT, "center": PP_ALIGN.CENTER, "right": PP_ALIGN.RIGHT}[align]
+            for r in ln:
+                rr = p.add_run(); rr.text = r["t"]
+                f = rr.font
+                f.name = r["font"]; f.size = Pt(r["size"]); f.bold = r["b"]; f.italic = r["i"]; f.underline = bool(r.get("u"))
+                f.color.rgb = RGBColor(*_rgb(r["color"]))
     elif t == "image":
         raw = _data_bytes(a.get("data", ""))
         if raw:
@@ -611,6 +765,17 @@ def _svg_objects(root):
                              "fill": fill if fill and fill.startswith("#") else None, "stroke": stroke if stroke and stroke.startswith("#") else None,
                              "lw": float(lw) if lw and re.match(r"^[\d.]+$", lw) else None, "text": "".join(ch.itertext()).strip() if t == "text" else "", "size": None,
                              "textable": t == "text"})
+                if t == "text":
+                    sz = get("font-size") or "16"
+                    try:
+                        sz = float(re.sub(r"[^\d.]", "", sz) or 16)
+                    except ValueError:
+                        sz = 16.0
+                    fam = (get("font-family") or "Arial").split(",")[0].strip().strip("'\"") or "Arial"
+                    fc = fill if fill and fill.startswith("#") else "#000000"
+                    wt, fs_, td = (get("font-weight") or ""), (get("font-style") or ""), (get("text-decoration") or "")
+                    objs[-1].update({"size": sz, "runs": [{"t": objs[-1]["text"], "font": fam, "size": sz, "color": fc, "b": wt in ("bold", "700", "800", "900"), "i": fs_ == "italic", "u": "underline" in td}],
+                                     "base": min(ys) + sz * 0.85})
             elif t in ("g", "a", "svg"):
                 walk(ch, m)
     walk(root, IDENT)
@@ -707,10 +872,22 @@ def _svg_apply(path: str, pages: list[dict]) -> tuple[str, int]:
             if t == "arrow":
                 S("polygon", points=f"{x2},{y2} {x2 - head * math.cos(ang - 0.4)},{y2 - head * math.sin(ang - 0.4)} {x2 - head * math.cos(ang + 0.4)},{y2 - head * math.sin(ang + 0.4)}", fill=col)
         elif t == "text":
-            size = float(a.get("size") or 16)
-            for k, line in enumerate(str(a.get("text", "")).split("\n")):
-                e = S("text", x=x, y=y + size * 0.9 + k * size * 1.25, fill=a.get("color") or a.get("fill") or "#000000", **{"font-size": size, "font-family": "Arial, Helvetica, sans-serif"})
-                e.text = line
+            from . import richtext
+            runs, align = richtext.normalize(a)
+            lay, _W, _H = richtext.layout(runs, float(a.get("w", 0) or 0) or None, align)
+            for ln, dx, base, _w in lay:
+                e = S("text", x=x + dx, y=y + base)
+                e.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
+                for r in ln:
+                    ts = etree.SubElement(e, "{%s}tspan" % SVGNS)
+                    ts.set("fill", r["color"]); ts.set("font-size", str(r["size"])); ts.set("font-family", f"'{r['font']}', Arial, Helvetica, sans-serif")
+                    if r["b"]:
+                        ts.set("font-weight", "bold")
+                    if r["i"]:
+                        ts.set("font-style", "italic")
+                    if r.get("u"):
+                        ts.set("text-decoration", "underline")
+                    ts.text = r["t"]
         elif t == "image":
             raw = a.get("data", "")
             if raw.startswith("data:image/"):

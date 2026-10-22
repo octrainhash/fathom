@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Spreadsheets and structured data: CSV, TSV, Excel (.xlsx), JSON, JSON Lines, XML, YAML, TOML, INI, HTML tables, SQL, Markdown tables."""
 from __future__ import annotations
 
@@ -560,7 +561,7 @@ class DataEngine(Engine):
         if s in ("xlsx", "xlsm", "xltx"):
             if t in ("csv", "tsv"):
                 note, multi = "Every sheet is saved as its own file.", True
-            elif t in ("json", "yaml", "xlsx"):
+            elif t in ("json", "yaml", "xlsx", "md", "sql", "html"):
                 note = ""
             else:
                 note = "Only the first sheet is used."
@@ -608,4 +609,21 @@ class DataEngine(Engine):
                 outs += write_table(tb, d, t, sn, ctx)
                 ctx.progress(n / len(data.sheets))
             return outs
+        if t in ("md", "sql", "html") and data.sheets and len(data.sheets) > 1:       # one workbook, several sheets: all of them go into the one file
+            parts = []
+            for n, (sn, tb) in enumerate(data.sheets, 1):
+                tmp = ctx.scratch("." + t)
+                write_table(tb, tmp, t, re.sub(r"[^A-Za-z0-9_]", "_", sn) or f"sheet{n}", ctx)
+                txt = tmp.read_text(encoding="utf-8", errors="replace")
+                if t == "md":
+                    txt = f"## {sn}\n\n{txt}"
+                elif t == "html":
+                    m = re.search(r"<body[^>]*>(.*)</body>", txt, re.S | re.I)
+                    txt = f"<h2>{htmllib.escape(sn)}</h2>\n" + (m.group(1) if m else txt)
+                parts.append(txt)
+                ctx.progress(n / len(data.sheets))
+            if t == "html":
+                parts = ["<!doctype html><html><head><meta charset=\"utf-8\"><title>%s</title></head><body>" % htmllib.escape(stem)] + parts + ["</body></html>"]
+            dst.write_text("\n\n".join(parts), encoding="utf-8")
+            return [dst]
         return write_table(data, dst, t, stem, ctx, all_sheets=(t == "xlsx"))

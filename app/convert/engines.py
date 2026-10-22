@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Which engine can turn which format into which, and how a conversion is carried out (including two-step routes)."""
 from __future__ import annotations
 
@@ -7,7 +8,7 @@ from pathlib import Path
 
 from app.convert.core import Cancelled, ConvertError, Ctx, Edge, Engine, Opts
 from app.convert.eng_data import DataEngine
-from app.convert.eng_docs import CalibreEngine, OfficeEngine, PageEngine, PandocEngine, PdfSlidesEngine, PdfTablesEngine, PdfToWordEngine, TextPdfEngine
+from app.convert.eng_docs import CalibreEngine, OfficeEngine, PageEngine, PandocEngine, PdfSlidesEngine, PdfTablesEngine, PdfToWordEngine, SlidesToDocEngine, TextPdfEngine
 from app.convert.eng_image import ImageEngine, OcrEngine
 from app.convert.eng_media import FrameEngine, MediaEngine, SpeechEngine, SubtitleEngine
 from app.convert.eng_misc import ArchiveEngine, FontEngine, MeshEngine
@@ -16,7 +17,7 @@ from app.convert.formats import FORMATS, category, label
 log = logging.getLogger("fathom")
 
 ENGINES: list[Engine] = [
-    ImageEngine(), OcrEngine(), PageEngine(), TextPdfEngine(), PandocEngine(), OfficeEngine(), CalibreEngine(), PdfToWordEngine(), PdfTablesEngine(), PdfSlidesEngine(),
+    ImageEngine(), OcrEngine(), PageEngine(), TextPdfEngine(), PandocEngine(), OfficeEngine(), CalibreEngine(), PdfToWordEngine(), PdfTablesEngine(), PdfSlidesEngine(), SlidesToDocEngine(),
     DataEngine(), MediaEngine(), FrameEngine(), SubtitleEngine(), SpeechEngine(), ArchiveEngine(), FontEngine(), MeshEngine(),
 ]
 ANY_SOURCE = {"archive"}

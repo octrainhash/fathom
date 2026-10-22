@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Documents: PDF and e-book pages (PyMuPDF), text/markup (Pandoc), Microsoft Office / OpenDocument and old office formats
 (LibreOffice), Kindle and other e-book formats (Calibre), and PDF -> Word with layout (pdf2docx)."""
 from __future__ import annotations
@@ -14,6 +15,7 @@ import threading
 from functools import lru_cache
 from pathlib import Path
 
+from app.service import UserError
 from app.convert.core import ConvertError, Ctx, Edge, Engine, Opts, find_program, parse_pages, safe_stem
 from app.convert.formats import FORMATS
 from app.runtime import no_window_flags
@@ -319,6 +321,9 @@ class PandocEngine(Engine):
             e.note = "Slides are created from the headings of the document."
         if s == "txt":
             e.cost = 1.0
+        word_like = {"docx", "doc", "odt", "rtf", "dotx", "dot", "ott", "docm"}
+        if s in word_like and t in word_like:
+            e.cost = 1.8   # Word <-> OpenDocument <-> RTF is LibreOffice's job: it keeps fonts, page setup, shapes, headers and tables where Pandoc rebuilds plain text
         return e
 
     def convert(self, src: Path, out_dir: Path, s: str, t: str, o: Opts, ctx: Ctx) -> list[Path]:
@@ -334,8 +339,17 @@ class PandocEngine(Engine):
             work_src = ctx.scratch(".html")
             work_src.write_text("<html><head><meta charset='utf-8'><title>%s</title></head><body>%s</body></html>" % (htmllib.escape(stem), body), encoding="utf-8")
         cmd = [exe, str(work_src), "-f", PANDOC_READ[s], "-t", PANDOC_WRITE[t], "-o", str(dst), "--resource-path", str(src.parent)]
+        if s in ("docx", "odt", "rtf", "epub", "fb2"):
+            # a document's own Title (and Subtitle) is metadata to Pandoc and silently vanishes from the body: put it back as the first heading
+            lua = ctx.scratch(".lua")
+            lua.write_text("function Pandoc(doc)\n  local out = {}\n  local m = doc.meta\n"
+                           "  if m.title then table.insert(out, pandoc.Header(1, {pandoc.Str(pandoc.utils.stringify(m.title))})) end\n"
+                           "  if m.subtitle then table.insert(out, pandoc.Para({pandoc.Emph({pandoc.Str(pandoc.utils.stringify(m.subtitle))})})) end\n"
+                           "  for _, b in ipairs(doc.blocks) do table.insert(out, b) end\n"
+                           "  m.title = nil; m.subtitle = nil\n  return pandoc.Pandoc(out, m)\nend\n", encoding="utf-8")
+            cmd += ["--lua-filter", str(lua)]
         if t in ("html", "tex", "docbook", "asciidoc", "org"):
-            cmd += ["--standalone", "--metadata", f"pagetitle={stem}", "--metadata", f"title={stem}"]
+            cmd += ["--standalone", "--metadata", f"pagetitle={stem}"] + ([] if s in ("docx", "odt", "rtf", "epub", "fb2") else ["--metadata", f"title={stem}"])
         elif t == "epub":
             cmd += ["--metadata", f"title={stem}"]
         if t == "html":
@@ -522,13 +536,23 @@ class CalibreEngine(Engine):
 
 # ---------------------------------------------------------------- PDF -> Word keeping the layout
 class PdfToWordEngine(Engine):
+    """Diagrams, posters, forms and anything with boxes or pictures are rebuilt object by object so every shape, arrow, picture and line of text stays
+    exactly where it was (convert/pdf_layout.py). Pages of running text are rebuilt as flowing Word text by pdf2docx when it is installed."""
     name = "pdf2docx"
     label = "PDF to Word with layout"
-    cost = 1.5
+    cost = 1.2
     heavy = True
-    needs = "pdf2docx"
+    needs = "python-docx"
 
     def available(self) -> bool:
+        try:
+            import importlib.util
+
+            return importlib.util.find_spec("docx") is not None
+        except Exception:
+            return False
+
+    def _flow_ok(self) -> bool:
         try:
             import importlib.util
 
@@ -540,24 +564,150 @@ class PdfToWordEngine(Engine):
         return {"pdf"}
 
     def writes(self) -> set[str]:
+        return {"docx", "odt"}
+
+    def can(self, s: str, t: str) -> Edge | None:
+        e = super().can(s, t)
+        if e:
+            e.note = "Boxes, arrows, pictures and text keep their exact places (text stays editable). Plain text pages become flowing Word text."
+            if t == "odt":
+                e.cost = 1.1          # older Word / RTF routes start from this one: LibreOffice keeps its shapes where it drops those of a .docx
+        return e
+
+    def convert(self, src: Path, out_dir: Path, s: str, t: str, o: Opts, ctx: Ctx) -> list[Path]:
+        from . import pdf_layout
+
+        out_dir.mkdir(parents=True, exist_ok=True)
+        dst = out_dir / f"{safe_stem(src)}.{t}"
+        if o.password:
+            raise ConvertError("Remove the password from this PDF first (Protect > PDF password).")
+        if t == "odt":
+            if self._flow_ok() and not pdf_layout.has_graphics(str(src)):
+                raise ConvertError("flowing text: use the Word route")        # the next route (Word, then LibreOffice) reflows plain text properly
+            pdf_layout.to_odt(str(src), dst, ctx.progress)
+            return [dst]
+        if pdf_layout.has_graphics(str(src)) or not self._flow_ok():
+            try:
+                pdf_layout.to_docx(str(src), dst, ctx.progress)
+                return [dst]
+            except UserError:
+                raise
+            except Exception as exc:
+                if not self._flow_ok():
+                    raise ConvertError(f"Could not rebuild this PDF as Word: {exc}")
+        from pdf2docx import Converter  # type: ignore
+
+        cv = Converter(str(src))
+        try:
+            cv.convert(str(dst), start=0, end=None)
+        finally:
+            cv.close()
+        return [dst]
+
+
+# ---------------------------------------------------------------- slides -> a readable document
+class SlidesToDocEngine(Engine):
+    """A presentation as a document: each slide's title, text (with its bullet levels), tables, pictures and speaker notes, slide by slide."""
+    name = "slides2doc"
+    label = "Slides to a document"
+    cost = 0.8
+
+    def available(self) -> bool:
+        try:
+            import importlib.util
+
+            return importlib.util.find_spec("pptx") is not None and importlib.util.find_spec("docx") is not None
+        except Exception:
+            return False
+
+    def reads(self) -> set[str]:
+        return {"pptx", "ppsx", "ppt", "pps", "odp"}
+
+    def writes(self) -> set[str]:
         return {"docx"}
 
     def can(self, s: str, t: str) -> Edge | None:
         e = super().can(s, t)
         if e:
-            e.note = "Text, tables and pictures are rebuilt as Word content; complex layouts may shift."
+            e.note = "Every slide's title, text, tables, pictures and speaker notes are listed slide by slide."
+            if s in ("ppt", "pps", "odp") and not soffice_exe():
+                return None
         return e
 
     def convert(self, src: Path, out_dir: Path, s: str, t: str, o: Opts, ctx: Ctx) -> list[Path]:
-        from pdf2docx import Converter  # type: ignore
+        import io
+
+        import docx  # type: ignore
+        from docx.shared import Inches  # type: ignore
+        from pptx import Presentation  # type: ignore
+        from pptx.enum.shapes import MSO_SHAPE_TYPE, PP_PLACEHOLDER  # type: ignore
 
         out_dir.mkdir(parents=True, exist_ok=True)
+        work = src
+        if s not in ("pptx", "ppsx"):
+            work = OfficeEngine().convert(src, ctx.scratch_dir(), s, "pptx", o, ctx)[0] if s != "odp" else OfficeEngine().convert(src, ctx.scratch_dir(), s, "pptx", o, ctx)[0]
+        prs = Presentation(str(work))
+        d = docx.Document()
+        d.core_properties.title = safe_stem(src)
+
+        def flatten(shapes):
+            for sh in shapes:
+                if sh.shape_type == MSO_SHAPE_TYPE.GROUP:
+                    yield from flatten(sh.shapes)
+                else:
+                    yield sh
+
+        for n, slide in enumerate(prs.slides, 1):
+            ctx.check()
+            shapes = sorted(flatten(slide.shapes), key=lambda x: ((x.top or 0) // 91440, x.left or 0))
+            title = None
+            try:
+                title = slide.shapes.title
+            except Exception:
+                title = None
+            ttext = title.text_frame.text.strip() if title is not None and title.has_text_frame else ""
+            d.add_heading(f"Slide {n}" + (f": {ttext}" if ttext else ""), level=1)
+            for sh in shapes:
+                if title is not None and sh.shape_id == title.shape_id:
+                    continue
+                if sh.has_text_frame and sh.text_frame.text.strip():
+                    body = sh.is_placeholder and sh.placeholder_format.type in (PP_PLACEHOLDER.BODY, PP_PLACEHOLDER.OBJECT)
+                    for para in sh.text_frame.paragraphs:
+                        txt = "".join(r.text for r in para.runs).strip()
+                        if not txt:
+                            continue
+                        lvl = min(2, int(para.level or 0))
+                        if body or lvl:
+                            p = d.add_paragraph(style="List Bullet" if lvl == 0 else f"List Bullet {lvl + 1}")
+                        else:
+                            p = d.add_paragraph()
+                        for r in para.runs:
+                            rr = p.add_run(r.text)
+                            rr.bold = r.font.bold
+                            rr.italic = r.font.italic
+                elif getattr(sh, "has_table", False) and sh.has_table:
+                    tb = sh.table
+                    t_ = d.add_table(rows=len(tb.rows), cols=len(tb.columns))
+                    t_.style = "Table Grid"
+                    for i, row in enumerate(tb.rows):
+                        for j, cell in enumerate(row.cells):
+                            t_.cell(i, j).text = cell.text
+                elif sh.shape_type == MSO_SHAPE_TYPE.PICTURE:
+                    try:
+                        w = min(6.0, max(1.0, (sh.width or 0) / 914400))
+                        d.add_picture(io.BytesIO(sh.image.blob), width=Inches(w))
+                    except Exception:
+                        pass
+            try:
+                if slide.has_notes_slide and slide.notes_slide.notes_text_frame.text.strip():
+                    p = d.add_paragraph()
+                    r = p.add_run("Notes: " + slide.notes_slide.notes_text_frame.text.strip())
+                    r.italic = True
+            except Exception:
+                pass
+            ctx.progress(n / len(prs.slides))
         dst = out_dir / f"{safe_stem(src)}.docx"
-        cv = Converter(str(src), password=o.password or None) if o.password else Converter(str(src))
-        try:
-            cv.convert(str(dst), start=0, end=None)
-        finally:
-            cv.close()
+        d.save(str(dst))
         return [dst]
 
 
@@ -662,7 +812,7 @@ class PdfSlidesEngine(Engine):
         try:
             import importlib.util
 
-            return get_fitz() is not None and importlib.util.find_spec("pptx") is not None
+            return importlib.util.find_spec("pptx") is not None
         except Exception:
             return False
 
@@ -675,7 +825,7 @@ class PdfSlidesEngine(Engine):
     def can(self, s: str, t: str) -> Edge | None:
         e = super().can(s, t)
         if e:
-            e.note = "Each page becomes one slide showing the page as a picture (so it looks exactly the same); the page's text is put in the slide notes."
+            e.note = "Each page becomes one slide; boxes, arrows, pictures and text are rebuilt as editable objects in the same places (a scanned page stays a picture)."
         return e
 
     def convert(self, src: Path, out_dir: Path, s: str, t: str, o: Opts, ctx: Ctx) -> list[Path]:
@@ -686,6 +836,17 @@ class PdfSlidesEngine(Engine):
 
         out_dir.mkdir(parents=True, exist_ok=True)
         dst = out_dir / f"{safe_stem(src)}.pptx"
+        if not o.pages and not o.password:
+            try:
+                from . import pdf_layout
+
+                pdf_layout.to_pptx(str(src), dst, ctx.progress)
+                return [dst]
+            except UserError:
+                raise
+            except Exception:
+                if get_fitz() is None:
+                    raise ConvertError("Could not rebuild this PDF as slides.")
         doc = open_doc(src, o)
         try:
             pages = parse_pages(o.pages, doc.page_count)
