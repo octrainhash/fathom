@@ -163,7 +163,7 @@
           });
           const name = h("input", { type: "text", placeholder: "Name for your own preset", "aria-label": "Preset name", maxlength: 40, style: "width:100%" });
           F.tip(name, "Type a name, then press Save to keep the options as they are now. They are stored in this browser and appear under 'Yours'.");
-          const save = h("button", { type: "button", tip: "Saves the options you have set now under that name." }, "Save these options");
+          const save = h("button", { class: "btn", type: "button", tip: "Saves the options you have set now under that name." }, "Save these options");
           save.onclick = () => {
             const n = name.value.trim(); if (!n) { F.toast("Type a name first."); return; }
             const now = {}; for (const form of Object.values(f)) Object.assign(now, form.values());
@@ -172,7 +172,7 @@
             if (!saveMine(mine)) { F.toast("This browser would not keep it (private window?)."); return; }
             fill("m" + n); name.value = ""; hint.textContent = `Saved "${n}".`;
           };
-          const del = h("button", { type: "button", tip: "Deletes the preset of yours that is chosen in the list." }, "Delete");
+          const del = h("button", { class: "btn", type: "button", tip: "Deletes the preset of yours that is chosen in the list." }, "Delete");
           del.onclick = () => {
             const v = sel.value; if (!v || v[0] !== "m") { F.toast("Choose one of your own presets first."); return; }
             const mine = loadMine(); delete mine[v.slice(1)]; saveMine(mine); fill(); hint.textContent = "Deleted.";
