@@ -43,7 +43,7 @@ def graph() -> dict[str, dict[str, list[Edge]]]:
         targets = [t for t in ids if t in W and t not in NOT_A_TARGET]
         for s in sources:
             for t in targets:
-                if s == t:
+                if s == t and not eng.same_ok:   # "same type" is only offered by engines that can apply adjustments alone
                     continue
                 try:
                     e = eng.can(s, t)
@@ -112,7 +112,7 @@ def _paths(s: str) -> dict[str, list[tuple[float, tuple[Edge, ...]]]]:
         for e in edges:
             out.setdefault(t1, []).append((e.cost, (e,)))
     for t1, edges in g.get(s, {}).items():
-        if t1 not in MIDDLE:
+        if t1 not in MIDDLE or t1 == s:
             continue
         e1 = edges[0]
         if e1.multi:

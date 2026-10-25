@@ -5,8 +5,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageColor, ImageFile, ImageOps, ImageSequence
+from PIL import Image, ImageChops, ImageColor, ImageFile, ImageOps, ImageSequence
 
+from app.convert import adjust
 from app.convert.core import ConvertError, Ctx, Edge, Engine, Opts, safe_stem
 from app.convert.formats import FORMATS, known_fmt
 
@@ -158,7 +159,124 @@ def resized(im: Image.Image, o: Opts) -> Image.Image:
         return im
     if im.mode in ("P", "1"):
         im = im.convert("RGBA" if has_alpha(im) else "RGB")
-    return im.resize((nw, nh), Image.LANCZOS)
+    method = {"bicubic": Image.BICUBIC, "bilinear": Image.BILINEAR, "nearest": Image.NEAREST}.get(str(o.img_resample), Image.LANCZOS)
+    return im.resize((nw, nh), method)
+
+
+def _autotrim(im: Image.Image) -> Image.Image:
+    """Cuts off edges that are all one colour (or fully see-through)."""
+    if has_alpha(im):
+        box = im.convert("RGBA").getchannel("A").getbbox()
+        if box and box != (0, 0, *im.size):
+            return im.crop(box)
+    rgb = to_8bit(im).convert("RGB")
+    diff = ImageChops.difference(rgb, Image.new("RGB", rgb.size, rgb.getpixel((0, 0))))
+    diff = ImageChops.add(diff, diff, 2.0, -10)
+    box = diff.getbbox()
+    return im.crop(box) if box and box != (0, 0, *im.size) else im
+
+
+def _crop_aspect(im: Image.Image, ratio: tuple[int, int]) -> Image.Image:
+    w, h = im.size
+    n, d = ratio
+    if w * d > h * n:                      # too wide: cut the sides
+        nw, nh = max(1, round(h * n / d)), h
+    else:                                  # too tall: cut top and bottom
+        nw, nh = w, max(1, round(w * d / n))
+    left, top = (w - nw) // 2, (h - nh) // 2
+    return im.crop((left, top, left + nw, top + nh))
+
+
+def shaped(im: Image.Image, o: Opts) -> Image.Image:
+    """Cut empty edges and crop to a new shape. Done before resizing, so the size limits apply to the result."""
+    if not adjust.image_shape_active(o):
+        return im
+    if im.mode in ("P", "1"):
+        im = im.convert("RGBA" if has_alpha(im) else "RGB")
+    if o.img_autotrim:
+        im = _autotrim(im)
+    ratio = adjust.ASPECTS.get(str(o.img_aspect))
+    if ratio:
+        im = _crop_aspect(im, ratio)
+    return im
+
+
+def _quantize(im: Image.Image, colors: int) -> Image.Image:
+    Q = getattr(Image, "Quantize", Image)
+    if has_alpha(im):
+        return im.convert("RGBA").quantize(colors=colors, method=Q.FASTOCTREE)
+    return im.convert("RGB").quantize(colors=colors, method=Q.MEDIANCUT)
+
+
+def finished(im: Image.Image, o: Opts) -> Image.Image:
+    """Fewer colours, then a border. Done last."""
+    if not adjust.image_finish_active(o):
+        return im
+    n = int(o.img_palette)
+    if n > 0:
+        im = _quantize(to_8bit(im), max(2, min(256, n)))
+    b = max(0, min(2000, int(o.img_border)))
+    if b:
+        try:
+            fill = ImageColor.getrgb(o.img_border_color or "#ffffff")
+        except ValueError:
+            fill = (255, 255, 255)
+        if im.mode == "P":
+            im = im.convert("RGBA" if has_alpha(im) else "RGB")
+        if im.mode == "RGBA" and len(fill) == 3:
+            fill = fill + (255,)
+        elif im.mode == "L":
+            fill = fill[0]
+        im = ImageOps.expand(im, border=b, fill=fill)
+    return im
+
+
+def adjusted(im: Image.Image, o: Opts) -> Image.Image:
+    """Turn, flip, lighting, colour, sharpness and blur (see the picture options). Transparent areas stay transparent."""
+    if not adjust.image_active(o):
+        return im
+    from PIL import ImageEnhance, ImageFilter
+
+    T = getattr(Image, "Transpose", Image)
+    im = to_8bit(im)
+    alpha = None
+    if has_alpha(im):
+        rgba = im.convert("RGBA")
+        alpha = rgba.getchannel("A")
+        im = rgba.convert("RGB")
+    elif im.mode not in ("RGB", "L"):
+        im = im.convert("RGB")
+    # turn and flip (the see-through mask follows the picture)
+    turn = {"90": T.ROTATE_270, "180": T.ROTATE_180, "270": T.ROTATE_90}.get(str(o.img_rotate))
+    flips = []
+    if o.img_flip in ("h", "both"):
+        flips.append(T.FLIP_LEFT_RIGHT)
+    if o.img_flip in ("v", "both"):
+        flips.append(T.FLIP_TOP_BOTTOM)
+    for op in ([turn] if turn is not None else []) + flips:
+        im = im.transpose(op)
+        if alpha is not None:
+            alpha = alpha.transpose(op)
+    if o.img_auto_levels:
+        im = ImageOps.autocontrast(im, cutoff=1)
+    if int(o.img_brightness) != 100:
+        im = ImageEnhance.Brightness(im).enhance(max(0, int(o.img_brightness)) / 100)
+    if int(o.img_contrast) != 100:
+        im = ImageEnhance.Contrast(im).enhance(max(0, int(o.img_contrast)) / 100)
+    if int(o.img_saturation) != 100 and im.mode == "RGB":
+        im = ImageEnhance.Color(im).enhance(max(0, int(o.img_saturation)) / 100)
+    if int(o.img_sharpness) != 100:
+        im = ImageEnhance.Sharpness(im).enhance(max(0, int(o.img_sharpness)) / 100)
+    if o.img_blur and o.img_blur > 0:
+        im = im.filter(ImageFilter.GaussianBlur(radius=min(100.0, float(o.img_blur))))
+    if o.img_grayscale:
+        im = im.convert("L").convert("RGB")
+    if o.img_invert:
+        im = ImageOps.invert(im.convert("RGB"))
+    if alpha is not None:
+        im = im.convert("RGBA")
+        im.putalpha(alpha)
+    return im
 
 
 def _prep(im: Image.Image, t: str, o: Opts) -> Image.Image:
@@ -176,7 +294,7 @@ def _prep(im: Image.Image, t: str, o: Opts) -> Image.Image:
     elif t in ("png", "tga", "webp", "avif", "heic", "sgi", "dds", "jp2", "icns", "tif", "apng"):
         if im.mode in ("CMYK", "YCbCr", "LAB", "HSV") and t != "tif":
             im = im.convert("RGB")
-        elif im.mode == "P":
+        elif im.mode == "P" and not (o.img_palette and t in ("png", "apng")):
             im = im.convert("RGBA" if has_alpha(im) else "RGB")
         elif im.mode == "1" and t in ("webp", "avif", "heic", "jp2", "icns", "dds"):
             im = im.convert("L")
@@ -196,7 +314,7 @@ def _square(im: Image.Image, size: int) -> Image.Image:
 def save_pil(frames: list[Image.Image], durations: list[int], dst: Path, t: str, o: Opts, src_img: Image.Image | None = None) -> None:
     """Saves one or more frames as format t."""
     fmt = SAVE_NAME[t]
-    frames = [_prep(resized(f, o), t, o) for f in frames]
+    frames = [_prep(finished(adjusted(resized(shaped(f, o), o), o), o), t, o) for f in frames]
     first = frames[0]
     kw: dict = {}
     q = max(1, min(100, int(o.image_quality)))
@@ -239,6 +357,8 @@ def save_pil(frames: list[Image.Image], durations: list[int], dst: Path, t: str,
         kw["resolution"] = float(o.pdf_dpi or 150)
     elif t == "gif":
         kw.update(optimize=True)
+    if int(o.img_dpi) > 0 and t in ("jpg", "png", "apng", "tif", "bmp"):
+        kw["dpi"] = (int(o.img_dpi), int(o.img_dpi))
     if o.strip_metadata:
         kw.pop("exif", None)
         kw.pop("icc_profile", None)
@@ -264,6 +384,15 @@ class ImageEngine(Engine):
     name = "image"
     label = "Pictures"
     cost = 1.0
+    same_ok = True
+
+    def can(self, s: str, t: str) -> Edge | None:
+        if s == t:
+            r, w = rw()
+            if s in r and s in w and s not in ("apng", "gif", "ico", "icns"):
+                return Edge(s, t, self, 2.6, "Same type: only your adjustments are applied (quality, size, colours, turn...).")
+            return None
+        return super().can(s, t)
 
     def reads(self) -> set[str]:
         return rw()[0]
@@ -273,6 +402,8 @@ class ImageEngine(Engine):
 
     def convert(self, src: Path, out_dir: Path, s: str, t: str, o: Opts, ctx: Ctx) -> list[Path]:
         ctx.check()
+        if s == t and not adjust.image_changes(o):
+            raise ConvertError("Nothing to change. Pick a setting first (quality, size, brightness, turn...) or choose a different type.")
         animated_target = t in ANIMATED_OUT
         frames, durations, first = load_frames(src, s, all_frames=animated_target or o.all_frames)
         stem = safe_stem(src)

@@ -35,15 +35,62 @@ class Opts:
     background: str = "#ffffff"      # fills transparent areas when the target has no transparency
     all_frames: bool = False         # animated picture / multipage TIFF -> one file per frame
     ico_sizes: str = "16,24,32,48,64,128,256"
+    img_brightness: int = 100        # percent; 100 = unchanged
+    img_contrast: int = 100
+    img_saturation: int = 100        # 0 = black and white, 200 = twice as vivid
+    img_sharpness: int = 100         # above 100 sharpens, below softens
+    img_blur: float = 0.0            # blur radius in pixels; 0 = none
+    img_grayscale: bool = False
+    img_invert: bool = False
+    img_auto_levels: bool = False    # stretch the lightest and darkest parts to the full range
+    img_rotate: str = "none"         # none | 90 | 180 | 270 (clockwise)
+    img_flip: str = "none"           # none | h | v | both
+    img_dpi: int = 0                 # print sharpness stored in the file; 0 = leave alone
+    img_aspect: str = "keep"         # keep | 1:1 | 4:3 | 3:2 | 16:9 | 9:16 | 2:3 (centre crop to this shape)
+    img_autotrim: bool = False       # cut off empty edges of one colour
+    img_border: int = 0              # pixels of border added around the picture
+    img_border_color: str = "#ffffff"
+    img_palette: int = 0             # 0 = full colour; otherwise reduce to this many colours (256, 64, 16, 8, 2)
+    img_resample: str = "lanczos"    # lanczos | bicubic | bilinear | nearest (how a resized picture is calculated)
     # PDF / documents
     pdf_dpi: int = 150
     pages: str = ""                  # "1-3,7" (empty = all pages)
     # video / audio
     video_quality: str = "balanced"  # high | balanced | small
+    video_copy: bool = True          # copy the video and sound as they are when the format allows (no re-encode): very fast, same quality
     video_height: int = 0            # 0 = keep the size
     fps: float = 0                   # 0 = keep
     keep_audio: bool = True
     audio_kbps: int = 192
+    video_preset: str = "medium"     # ultrafast | veryfast | fast | medium | slow | veryslow (speed against file size)
+    video_gpu: bool = False          # encode with the NVIDIA graphics card when there is one (falls back to the processor)
+    video_crf: int = 0               # 0 = use the quality choice; otherwise 14 (best) .. 40 (smallest), lower is better
+    video_aspect: str = "keep"       # keep | 16:9 | 4:3 | 3:2 | 1:1 | 9:16 | 21:9
+    video_aspect_mode: str = "pad"   # pad (black bars) | crop (fill the frame)
+    video_deinterlace: bool = False  # clean up the comb lines of old TV recordings
+    audio_track: int = 1             # which sound track of the file to keep (1 = the first)
+    video_rotate: str = "none"       # none | 90 | 180 | 270 (clockwise)
+    video_flip: str = "none"         # none | h | v | both
+    video_brightness: int = 0        # -100..100
+    video_contrast: int = 100        # percent
+    video_saturation: int = 100      # percent; 0 = black and white
+    video_grayscale: bool = False
+    video_denoise: bool = False
+    video_sharpen: bool = False
+    speed: float = 1.0               # 1 = normal, 2 = twice as fast, 0.5 = half speed (video and sound)
+    trim_start: float = 0.0          # seconds; keep the part from here ...
+    trim_end: float = 0.0            # ... to here (0 = to the end)
+    # sound (any sound file, or the sound of a video)
+    audio_volume: int = 100          # percent; 100 = unchanged, 200 = twice as loud, 0 = silent
+    audio_normalize: bool = False    # make the loudness even and pleasant (EBU R128)
+    audio_fade_in: float = 0.0       # seconds
+    audio_fade_out: float = 0.0      # seconds
+    audio_channels: str = "keep"     # keep | mono | stereo
+    audio_rate: int = 0              # Hz; 0 = keep
+    audio_denoise: bool = False      # reduce steady background hiss
+    audio_silence: bool = False      # cut long silences (sound files, and video turned into sound)
+    audio_bass: int = 0              # dB, -15..15
+    audio_treble: int = 0            # dB, -15..15
     gif_fps: int = 12
     gif_width: int = 480
     frame_time: float = 0.0          # video -> picture: which second to grab
@@ -189,6 +236,7 @@ class Engine:
     label = "Engine"
     cost = 1.0
     heavy = False           # heavy work (video, Office, OCR) runs one at a time
+    same_ok = False         # may "convert" a type into itself, to apply adjustments only (volume, quality, colours...)
     needs = ""              # what to install when it is missing
 
     def available(self) -> bool:

@@ -6,6 +6,7 @@ import subprocess
 from functools import lru_cache
 from pathlib import Path
 
+from app.convert import adjust
 from app.convert.core import ConvertError, Ctx, Edge, Engine, Opts, ffmpeg_exe, ffmpeg_all, safe_stem
 from app.convert.formats import FORMATS
 from app.runtime import no_window_flags
@@ -26,11 +27,8 @@ AUDIO_OUT = {"mp3": ["libmp3lame"], "wav": ["pcm_s16le"], "flac": ["flac"], "ogg
              "au": ["pcm_s16be"], "caf": ["pcm_s16le"], "amr": ["libopencore_amrnb"]}
 
 
-@lru_cache(maxsize=1)
-def _encoders() -> set[str]:
-    exe = ffmpeg_exe()
-    if not exe:
-        return set()
+@lru_cache(maxsize=8)
+def _encoders_of(exe: str) -> set[str]:
     try:
         out = subprocess.run([exe, "-hide_banner", "-encoders"], capture_output=True, text=True, timeout=30, creationflags=no_window_flags()).stdout
     except Exception:
@@ -41,6 +39,19 @@ def _encoders() -> set[str]:
         if m:
             names.add(m.group(1))
     return names
+
+
+def _encoders() -> set[str]:
+    exe = ffmpeg_exe()
+    return _encoders_of(exe) if exe else set()
+
+
+def gpu_exe() -> str | None:
+    """An ffmpeg that can encode with an NVIDIA card (NVENC): the bundled one has no NVENC, so a full ffmpeg on the PATH is used."""
+    for exe in ffmpeg_all():
+        if "h264_nvenc" in _encoders_of(exe):
+            return exe
+    return None
 
 
 def _ok(needs: list[str]) -> bool:
@@ -55,11 +66,13 @@ def probe(ctx: Ctx, src: Path) -> dict:
         rc, text = ctx.run([exe, "-hide_banner", "-nostdin", "-i", src, "-t", "0", "-f", "null", "-"])
         if "Duration:" in text or "Stream #" in text:
             break
-    info: dict = {"duration": 0.0, "video": False, "audio": False, "w": 0, "h": 0, "fps": 0.0, "text": text}
+    info: dict = {"duration": 0.0, "video": False, "audio": False, "audio_n": 0, "w": 0, "h": 0, "fps": 0.0, "text": text}
     m = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", text)
     if m:
         info["duration"] = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
     for line in text.splitlines():
+        if line.startswith("Output #"):
+            break                     # below this line ffmpeg describes what it would write, not the file itself
         if "Stream #" not in line:
             continue
         if " Video:" in line and "attached pic" not in line:
@@ -72,10 +85,13 @@ def probe(ctx: Ctx, src: Path) -> dict:
                 info["fps"] = float(fp.group(1))
         elif " Audio:" in line:
             info["audio"] = True
+            info["audio_n"] += 1
     return info
 
 
 def _crf(o: Opts, base: int) -> int:
+    if int(o.video_crf) > 0:
+        return max(10, min(51, int(o.video_crf)))      # the quality number chosen by hand: lower is better
     return {"high": base - 5, "balanced": base, "small": base + 5}.get(o.video_quality, base)
 
 
@@ -83,40 +99,62 @@ def _qv(o: Opts, high: int, bal: int, small: int) -> int:
     return {"high": high, "balanced": bal, "small": small}.get(o.video_quality, bal)
 
 
-def video_args(t: str, o: Opts, has_audio: bool) -> list[str]:
+X264_TARGETS = ("mp4", "m4v", "mov", "mkv", "3gp", "ts", "flv")
+
+
+def uses_gpu(t: str, o: Opts) -> bool:
+    """True when this conversion should be encoded by the NVIDIA graphics card (H.264 targets only)."""
+    return bool(o.video_gpu and t in X264_TARGETS and gpu_exe())
+
+
+def video_args(t: str, o: Opts, has_audio: bool, dur: float = 0.0, copy_video: bool = False, cpu_only: bool = False) -> list[str]:
+    """ffmpeg output options. copy_video keeps the picture untouched (only the sound is re-made, if it must be)."""
     vf: list[str] = []
-    if o.video_height and o.video_height > 0:
-        vf.append(f"scale=-2:'min({int(o.video_height)},ih)'")
-    if o.fps and o.fps > 0:
-        vf.append(f"fps={o.fps:g}")
-    args: list[str] = []
+    if not copy_video:
+        vf += adjust.rotate_flip_filters(o)
+        vf += adjust.aspect_filters(o)
+        if o.video_height and o.video_height > 0:
+            vf.append(f"scale=-2:'min({int(o.video_height)},ih)'")
+        if o.fps and o.fps > 0:
+            vf.append(f"fps={o.fps:g}")
+        vf += adjust.look_filters(o)
+        if adjust.speed_of(o) != 1.0:
+            vf.append(f"setpts=PTS/{adjust.speed_of(o):.4f}")
     k = f"{max(32, int(o.audio_kbps))}k"
-    if t in ("mp4", "m4v", "mov", "mkv", "3gp", "ts", "flv"):
-        args += ["-c:v", "libx264", "-preset", "medium", "-crf", str(_crf(o, 23)), "-pix_fmt", "yuv420p"]
-        if t in ("mp4", "m4v", "mov"):
-            args += ["-movflags", "+faststart"]
+    preset = o.video_preset if o.video_preset in adjust.X264_PRESETS else "medium"
+    venc: list[str]
+    if t in X264_TARGETS:
+        if uses_gpu(t, o) and not cpu_only:
+            venc = ["-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", str(_crf(o, 23)), "-b:v", "0", "-pix_fmt", "yuv420p"]
+        else:
+            venc = ["-c:v", "libx264", "-preset", preset, "-crf", str(_crf(o, 23)), "-pix_fmt", "yuv420p"]
         audio = ["-c:a", "aac", "-b:a", k]
     elif t == "webm":
-        args += ["-c:v", "libvpx-vp9", "-crf", str(_crf(o, 32)), "-b:v", "0", "-row-mt", "1", "-deadline", "good", "-cpu-used", "4", "-pix_fmt", "yuv420p"]
+        venc = ["-c:v", "libvpx-vp9", "-crf", str(_crf(o, 32)), "-b:v", "0", "-row-mt", "1", "-deadline", "good", "-cpu-used", "4", "-pix_fmt", "yuv420p"]
         audio = ["-c:a", "libopus", "-b:a", k]
     elif t == "avi":
-        args += ["-c:v", "mpeg4", "-q:v", str(_qv(o, 2, 4, 8)), "-vtag", "xvid", "-pix_fmt", "yuv420p"]
+        venc = ["-c:v", "mpeg4", "-q:v", str(_qv(o, 2, 4, 8)), "-vtag", "xvid", "-pix_fmt", "yuv420p"]
         audio = ["-c:a", "libmp3lame", "-b:a", k]
     elif t == "wmv":
-        args += ["-c:v", "wmv2", "-q:v", str(_qv(o, 3, 5, 9)), "-pix_fmt", "yuv420p"]
+        venc = ["-c:v", "wmv2", "-q:v", str(_qv(o, 3, 5, 9)), "-pix_fmt", "yuv420p"]
         audio = ["-c:a", "wmav2", "-b:a", k]
     elif t == "mpg":
-        args += ["-c:v", "mpeg2video", "-q:v", str(_qv(o, 2, 4, 8)), "-pix_fmt", "yuv420p"]
+        venc = ["-c:v", "mpeg2video", "-q:v", str(_qv(o, 2, 4, 8)), "-pix_fmt", "yuv420p"]
         audio = ["-c:a", "mp2", "-b:a", k, "-ar", "44100"]
     elif t == "ogv":
-        args += ["-c:v", "libtheora", "-q:v", str(_qv(o, 9, 7, 4)), "-pix_fmt", "yuv420p"]
+        venc = ["-c:v", "libtheora", "-q:v", str(_qv(o, 9, 7, 4)), "-pix_fmt", "yuv420p"]
         audio = ["-c:a", "libvorbis", "-b:a", k]
     else:
         raise ConvertError(f"Cannot make {t} video.")
+    if copy_video:
+        venc = ["-c:v", "copy"]
+    if t in ("mp4", "m4v", "mov"):
+        venc += ["-movflags", "+faststart"]
+    args: list[str] = list(venc)
     if vf:
         args = ["-vf", ",".join(vf)] + args
     if o.keep_audio and has_audio:
-        args += audio
+        args += audio + adjust.audio_filter_args(o, dur) + adjust.audio_out_args(o, "")
     else:
         args += ["-an"]
     return args
@@ -135,8 +173,8 @@ def audio_args(t: str, o: Opts) -> list[str]:
     return table[t]
 
 
-def run_ffmpeg(ctx: Ctx, args: list, duration: float = 0.0, what: str = "convert") -> None:
-    exes = ffmpeg_all()
+def run_ffmpeg(ctx: Ctx, args: list, duration: float = 0.0, what: str = "convert", exe: str | None = None) -> None:
+    exes = [exe] if exe else ffmpeg_all()
     if not exes:
         raise ConvertError("ffmpeg is missing. Run Fathom.bat repair (with internet) to reinstall it.")
 
@@ -176,8 +214,21 @@ class MediaEngine(Engine):
     def writes(self) -> set[str]:
         return {t for t, n in VIDEO_OUT.items() if _ok(n)} | {t for t, n in AUDIO_OUT.items() if _ok(n)}
 
+    @staticmethod
+    def _track(o: Opts, info: dict) -> int:
+        """Zero-based index of the sound track to keep; a clear message when the file has fewer tracks."""
+        want = max(1, int(o.audio_track))
+        if want > 1 and want > info.get("audio_n", 0):
+            raise ConvertError(f"This file has {info.get('audio_n', 0)} sound track{'s' if info.get('audio_n', 0) != 1 else ''}, so track {want} does not exist.")
+        return want - 1
+
+    SAME_NOTE = "Same type: only your adjustments are applied (sound, speed, cut, quality...)."
+
+    same_ok = True
+
     def can(self, s: str, t: str) -> Edge | None:
-        if s == t:
+        same = s == t
+        if same and s in ("gif", "apng", "swf"):
             return None
         v_in, a_in = s in VIDEO_IN, s in AUDIO_IN
         v_out, a_out = t in VIDEO_OUT, t in AUDIO_OUT
@@ -186,24 +237,30 @@ class MediaEngine(Engine):
         if not (t in self.writes()):
             return None
         if v_in and v_out:
-            return Edge(s, t, self, 1.0 if s != "gif" else 1.2)
+            return Edge(s, t, self, 2.6 if same else (1.0 if s != "gif" else 1.2), self.SAME_NOTE if same else "")
         if v_in and a_out:
             if s in ("gif", "apng", "swf"):
                 return None
             return Edge(s, t, self, 1.1, "Only the sound is kept.")
         if a_in and a_out:
-            return Edge(s, t, self, 1.0)
+            return Edge(s, t, self, 2.6 if same else 1.0, self.SAME_NOTE if same else "")
         return None   # a sound cannot become a video
 
     def convert(self, src: Path, out_dir: Path, s: str, t: str, o: Opts, ctx: Ctx) -> list[Path]:
         out_dir.mkdir(parents=True, exist_ok=True)
         dst = out_dir / f"{safe_stem(src)}.{t}"
+        if s == t and not adjust.media_changes(o):
+            raise ConvertError("Nothing to change. Pick a setting first (volume, speed, cut, quality, size...) or choose a different type.")
         info = probe(ctx, src)
         dur = info["duration"]
+        eff = adjust.effective_duration(o, dur)   # how long the result will be (also drives the progress bar)
+        pre = adjust.trim_in(o)
         if t in AUDIO_OUT:
             if not info["audio"]:
                 raise ConvertError("This file has no sound to extract.")
-            run_ffmpeg(ctx, ["-i", src, "-vn", "-map", "0:a:0", *audio_args(t, o), dst], dur, "extract the sound from")
+            track = self._track(o, info)
+            aargs = [*adjust.audio_filter_args(o, dur, silence=True), *audio_args(t, o), *adjust.audio_out_args(o, t)]
+            run_ffmpeg(ctx, [*pre, "-i", src, "-vn", "-map", f"0:a:{track}", *aargs, dst], 0 if o.audio_silence else eff, "extract the sound from" if s in VIDEO_IN else "change the sound of")
             return [dst]
         if s in AUDIO_IN:
             raise ConvertError("A sound file cannot be turned into a video.")
@@ -212,13 +269,38 @@ class MediaEngine(Engine):
         if t == "gif":
             w = max(16, int(o.gif_width))
             vf = f"fps={max(1, int(o.gif_fps))},scale='min({w},iw)':-1:flags=lanczos,split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5"
-            run_ffmpeg(ctx, ["-i", src, "-an", "-vf", vf, "-loop", "0", dst], dur, "make a GIF from")
+            run_ffmpeg(ctx, [*pre, "-i", src, "-an", "-vf", vf, "-loop", "0", dst], eff, "make a GIF from")
             return [dst]
-        args = video_args(t, o, info["audio"])
         extra: list = []
-        if t == "mkv" or t == "mp4":
-            extra = ["-map", "0:v:0", "-map", "0:a:0?"] if info["video"] else []
-        run_ffmpeg(ctx, ["-i", src, *extra, *args, dst], dur, "convert")
+        track = self._track(o, info)
+        if (t == "mkv" or t == "mp4" or track > 0) and info["video"]:
+            extra = ["-map", "0:v:0", "-map", f"0:a:{track}?"]
+        # Copy-only: keep the existing picture as it is (and the sound too, unless it must be changed). Very fast, same quality.
+        # Works when the codecs fit the new container (e.g. H.264 + AAC in MKV). Falls back to a normal convert if copying fails.
+        if (o.video_copy and info["video"] and s in VIDEO_IN and s not in ("gif", "apng") and t in VIDEO_OUT and t != "gif"
+                and not adjust.video_needs_reencode(o)):
+            try:
+                if o.keep_audio and not (adjust.audio_active(o) and info["audio"]):
+                    cargs = ["-c", "copy"]                                       # everything copied untouched
+                else:
+                    cargs = video_args(t, o, info["audio"], dur, copy_video=True)   # picture copied; sound removed or re-made
+                run_ffmpeg(ctx, [*pre, "-i", src, *extra, *cargs, dst], eff, "copy into")
+                return [dst]
+            except ConvertError:
+                if dst.exists():
+                    dst.unlink()
+        # a full conversion; with the graphics card first when asked for, then the processor if the card cannot do it
+        attempts = [False, True] if uses_gpu(t, o) else [True]
+        for n, cpu_only in enumerate(attempts):
+            try:
+                args = video_args(t, o, info["audio"], dur, cpu_only=cpu_only)
+                run_ffmpeg(ctx, [*pre, "-i", src, *extra, *args, dst], eff, "convert", exe=None if cpu_only else gpu_exe())
+                return [dst]
+            except ConvertError:
+                if n == len(attempts) - 1:
+                    raise
+                if dst.exists():
+                    dst.unlink()
         return [dst]
 
 

@@ -269,7 +269,7 @@ def formats_info():
 def format_targets(fmt: str):
     from app.convert import engines, formats
 
-    return {"id": fmt, "label": formats.label(fmt), "category": formats.category(fmt), "targets": engines.targets_for(fmt)}
+    return {"id": fmt, "label": formats.label(fmt), "category": formats.category(fmt), "targets": [x for x in engines.targets_for(fmt) if x["id"] != fmt]}
 
 
 @_post("/api/tools/merge")
