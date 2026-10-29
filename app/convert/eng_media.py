@@ -448,14 +448,14 @@ class SpeechEngine(Engine):
     def can(self, s: str, t: str) -> Edge | None:
         e = super().can(s, t)
         if e:
-            e.note = "The speech is typed out by an AI model; check names and numbers."
+            e.note = "The speech is typed out by an AI model; check names and numbers. Choose \"Translate to English\" in the options to get English subtitles from any language."
         return e
 
     def convert(self, src: Path, out_dir: Path, s: str, t: str, o: Opts, ctx: Ctx) -> list[Path]:
         from app import speech
 
         ctx.status("Listening… (the first time this downloads the speech model)")
-        segs = speech.transcribe(src, o.whisper_model if o.whisper_model in ("tiny", "base", "small", "medium") else "base", ctx.cancel)
+        segs = speech.transcribe(src, o.whisper_model, ctx.cancel, "translate" if o.whisper_task == "translate" else "transcribe", o.whisper_lang.strip().lower()[:8], o.whisper_beam, o.whisper_vad, o.whisper_prompt.strip()[:400], o.whisper_maxchars)
         ctx.check()
         out_dir.mkdir(parents=True, exist_ok=True)
         dst = out_dir / f"{safe_stem(src)}.{t}"

@@ -32,7 +32,7 @@ def _convert(paths, rec, o, out):
             mapping[s] = to
     if not mapping:
         raise UserError(f"None of these files can be turned into {to.upper()}.")
-    return opsvc.convert_start(paths, rec, mapping, o.get("convert_options", {}), out)
+    return opsvc.convert_start(paths, rec, mapping, {k: v for k, v in o.items() if k != "to"}, out)
 
 
 ACTIONS = {
@@ -40,6 +40,7 @@ ACTIONS = {
     "ocrpdf": ("Make PDF searchable (OCR)", lambda p, r, o, out: toolbox.ocrpdf_start(p, r, o, out)),
     "watermark": ("Remove PDF watermark", lambda p, r, o, out: toolbox.wm_start(p, r, o, out)),
     "nobg": ("Remove picture background", lambda p, r, o, out: toolbox.bg_start(p, r, o, out)),
+    "translate": ("Translate subtitles", lambda p, r, o, out: toolbox.translate_start(p, r, o, out)),
     "subs": ("Fix subtitles", lambda p, r, o, out: toolbox.subs_start(p, r, o, out)),
 }
 

@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Optional: find spoken words in audio files and in videos (faster-whisper, runs offline once the model is downloaded)."""
 from __future__ import annotations
 
@@ -85,10 +86,32 @@ def _model(size: str):
     return _models[size]
 
 
-def transcribe(path: Path, size: str, cancel) -> list[dict]:
-    """[{'start', 'end', 'text'}]. Cached, so searching the same recording again is instant."""
+WHISPER_SIZES = ("tiny", "base", "small", "medium", "large-v3", "large-v3-turbo", "distil-large-v3", "tiny.en", "base.en", "small.en", "medium.en")
+
+
+def _regroup(words: list[dict], maxchars: int) -> list[dict]:
+    """Cuts long spoken passages into shorter subtitle lines at word boundaries."""
+    out: list[dict] = []
+    cur: list[dict] = []
+    for w in words:
+        cur.append(w)
+        text = "".join(x["word"] for x in cur).strip()
+        if len(text) >= maxchars or w["word"].strip().endswith((".", "?", "!", "。")) and len(text) > maxchars * 0.5:
+            out.append({"start": cur[0]["start"], "end": cur[-1]["end"], "text": text})
+            cur = []
+    if cur:
+        out.append({"start": cur[0]["start"], "end": cur[-1]["end"], "text": "".join(x["word"] for x in cur).strip()})
+    return [x for x in out if x["text"]]
+
+
+def transcribe(path: Path, size: str, cancel, task: str = "transcribe", language: str = "", beam: int = 5, vad: bool = True, prompt: str = "", maxchars: int = 0) -> list[dict]:
+    """[{'start', 'end', 'text'}]. Cached, so searching the same recording again is instant.
+    task='translate' writes English text whatever language is spoken (Whisper's own translation)."""
+    size = size if size in WHISPER_SIZES else "base"
     st = path.stat()
-    key = hashlib.sha1(f"{path}|{size}|{st.st_size}|{st.st_mtime_ns}".encode()).hexdigest()
+    plain = task == "transcribe" and not language and beam == 5 and vad and not prompt and not maxchars
+    extra = "" if plain else f"|{task}|{language}|{beam}|{vad}|{prompt}|{maxchars}"
+    key = hashlib.sha1(f"{path}|{size}|{st.st_size}|{st.st_mtime_ns}{extra}".encode()).hexdigest()
     cache_dir = data_root() / "transcripts"
     cache_dir.mkdir(exist_ok=True)
     cache = cache_dir / f"{key}.json"
@@ -97,10 +120,14 @@ def transcribe(path: Path, size: str, cancel) -> list[dict]:
     model = _model(size)
     segments = []
     with ML_LOCK:
-        gen, _info = model.transcribe(_audio(path), vad_filter=True)
+        gen, _info = model.transcribe(_audio(path), vad_filter=bool(vad), task="translate" if task == "translate" else "transcribe", language=language or None,
+                                      beam_size=max(1, min(10, int(beam))), initial_prompt=prompt or None, word_timestamps=bool(maxchars))
         for seg in gen:
             if cancel.is_set():
                 return segments
+            if maxchars and getattr(seg, "words", None):
+                segments += _regroup([{"word": w.word, "start": float(w.start), "end": float(w.end)} for w in seg.words], int(maxchars))
+                continue
             text = seg.text.strip()
             if text:
                 segments.append({"start": float(seg.start), "end": float(seg.end), "text": text})

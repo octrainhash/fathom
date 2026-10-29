@@ -12,6 +12,9 @@
   const num = (id, label, value, tip, extra = {}) => ({ id, type: "number", label, value, tip, ...extra });
   const when = (id, ...vals) => (v) => vals.includes(v[id]);
 
+  // files sent with "Send to > Fathom" (the launcher drops them in a small inbox that is read here)
+  setInterval(async () => { try { const r = await api("/api/incoming"); if (r.paths && r.paths.length) { F.addPaths(r.paths); F.toast(`Added ${r.paths.length} item${r.paths.length === 1 ? "" : "s"} from Send to`); } } catch { /* ignore */ } }, 2000);
+
   // ====================================================================== quick helpers (no file needed)
   function quickTool(cfg) {
     reg({ id: cfg.id, group: "toolbox", icon: cfg.icon, label: cfg.label, blurb: cfg.blurb, files: false, output: false }, (main) => {
@@ -125,6 +128,54 @@
     sub: "Dummy text for layouts and mock-ups. A seed gives the same text every time.", fields: [sel("unit", "Make", [opt("paragraphs", "Paragraphs"), opt("sentences", "Sentences"), opt("words", "Words")], "paragraphs", ""), num("count", "How many", 3, "", { min: 1, max: 200 }),
       chk("start", 'Begin with "Lorem ipsum"', true, ""), chk("html", "Wrap paragraphs in <p>", false, "", { show: when("unit", "paragraphs") }), text("seed", "Seed (optional)", "", "Same seed, same text.", () => true)] });
 
+const UNIT_LISTS = {"length": ["m", "km", "cm", "mm", "um", "nm", "mile", "yard", "foot", "inch", "nautical mile", "light year"], "mass": ["kg", "g", "mg", "tonne", "lb", "oz", "stone", "carat", "tola"], "volume": ["L", "mL", "m3", "US gallon", "UK gallon", "US quart", "US pint", "US cup", "fl oz (US)", "tbsp (US)", "tsp (US)"], "area": ["m2", "km2", "cm2", "ha", "acre", "sq mile", "sq foot", "sq inch", "marla", "kanal"], "speed": ["m/s", "km/h", "mph", "knot", "ft/s", "Mach"], "time": ["s", "ms", "min", "hour", "day", "week", "year (365 d)", "month (30 d)"], "data": ["bit", "byte", "KB", "MB", "GB", "TB", "PB", "KiB", "MiB", "GiB", "TiB"], "pressure": ["Pa", "kPa", "bar", "atm", "psi", "mmHg", "inHg"], "energy": ["J", "kJ", "cal", "kcal", "Wh", "kWh", "BTU", "eV"], "power": ["W", "kW", "MW", "hp", "BTU/h"], "angle": ["degree", "radian", "gradian", "turn", "arcminute", "arcsecond"]};
+  const UNIT_KINDS = [["length","Length"],["mass","Weight and mass"],["volume","Volume"],["area","Area"],["speed","Speed"],["time","Time"],["data","Data size"],["pressure","Pressure"],["energy","Energy"],["power","Power"],["angle","Angle"],["temperature","Temperature"]];
+  UNIT_LISTS.temperature = ["C", "F", "K"];
+
+  quickTool({ id: "dataconv", tool: "convertdata", icon: "🔀", label: "Data converter", blurb: "Turn JSON, YAML, CSV, TSV, XML, TOML or INI into each other, or into a Markdown table, web table, JSON Lines or SQL.", rows: 10, outRows: 12,
+    sub: "Paste data in one form and pick the form you want. Tables become Markdown, a web page table, or SQL INSERT lines.", placeholder: '{"name": "Ali", "tags": ["a", "b"]}',
+    fields: [sel("src", "The data is", [opt("json", "JSON"), opt("yaml", "YAML"), opt("csv", "CSV"), opt("tsv", "TSV"), opt("xml", "XML"), opt("toml", "TOML"), opt("ini", "INI"), opt("lines", "Lines of text")], "json", "What you pasted."), sel("dst", "Make", [opt("json", "JSON"), opt("jsonl", "JSON Lines"), opt("yaml", "YAML"), opt("toml", "TOML"), opt("xml", "XML"), opt("csv", "CSV"), opt("tsv", "TSV"), opt("markdown", "Markdown table"), opt("html", "Web page table"), opt("sql", "SQL INSERT lines")], "yaml", "What you want."),
+      sel("delim", "Column separator in the CSV you pasted", [opt("auto", "Detect"), opt(",", "Comma"), opt(";", "Semicolon"), opt("|", "Bar")], "auto", "", { show: when("src", "csv") }), sel("delim_out", "Column separator to write", [opt(",", "Comma"), opt(";", "Semicolon"), opt("|", "Bar")], ",", "", { show: when("dst", "csv") }),
+      num("indent", "Indentation", 2, "", { min: 1, max: 8, show: when("dst", "json", "yaml") }), chk("sort", "Sort keys A to Z", false, ""), text("table", "Table name for SQL", "data", "", when("dst", "sql"))] });
+
+  quickTool({ id: "jwttool", tool: "jwt", icon: "🎫", label: "Token decoder (JWT)", blurb: "Read what is inside a login token: who, when it was made, when it expires. Optionally check its signature with your secret.", rows: 4, placeholder: "eyJhbGciOiJIUzI1NiIs…",
+    sub: "Paste a JWT. Fathom shows the header and the data, and whether it has expired. Nothing leaves this computer.", fields: [{ id: "secret", type: "password", label: "Secret (optional, to check the signature)", value: "", tip: "Works for HS256, HS384 and HS512 tokens." }] });
+
+  quickTool({ id: "regextool", tool: "regex", icon: "🧪", label: "Pattern tester (regex)", blurb: "Try a regular expression on your text and see every match and group, or replace with it.", rows: 8, placeholder: "The text to search in…",
+    sub: "Type your pattern and some text. Matches appear as you type, with their positions and groups.", fields: [text("pattern", "Pattern", "", "Python style. Example: (\\w+)@(\\w+)\\.com", () => true), chk("i", "Ignore capitals", false, ""), chk("m", "^ and $ work on every line", false, ""), chk("s", ". also matches a new line", false, ""), chk("x", "Allow comments and spaces in the pattern", false, ""),
+      chk("repl_on", "Replace instead of list", false, ""), text("repl", "Replace with (\\1 \\2 for groups)", "", "", (v) => v.repl_on)] });
+
+  quickTool({ id: "difftool", tool: "diff", icon: "↔️", label: "Compare two texts", blurb: "See exactly what changed between two pieces of text, line by line or word by word.", rows: 8, inputLabel: "First text",
+    sub: "Paste the first text above and the second below. Lines or words that changed are marked.", fields: [{ id: "other", type: "textarea", label: "Compare with (second text)", value: "", rows: 8, tip: "The newer or changed text." }, sel("mode", "Compare", [opt("lines", "Line by line"), opt("words", "Word by word")], "lines", ""), num("context", "Lines of context", 3, "", { min: 0, max: 20, show: when("mode", "lines") }), chk("ignore_space", "Ignore extra spaces", false, ""), chk("ignore_case", "Ignore capitals", false, "")] });
+
+  quickTool({ id: "unitstool", tool: "units", icon: "📏", label: "Unit converter", blurb: "Length, weight, volume, area, speed, time, data size, pressure, energy, power, angle and temperature, with every unit shown.", rows: 1, placeholder: "100", needsText: true,
+    sub: "Type a number, pick what it measures and the two units. All units are shown below so you can read off any of them.",
+    fields: [sel("kind", "Measuring", UNIT_KINDS.map(([v, l]) => opt(v, l)), "length", ""), ...UNIT_KINDS.flatMap(([k]) => [sel("from_" + k, "From", UNIT_LISTS[k].map((x) => opt(x, x)), UNIT_LISTS[k][0], "", { show: when("kind", k) }), sel("to_" + k, "To", UNIT_LISTS[k].map((x) => opt(x, x)), UNIT_LISTS[k][1], "", { show: when("kind", k) })])],
+    options: (v) => ({ kind: v.kind, from: v["from_" + v.kind], to: v["to_" + v.kind] }) });
+
+  quickTool({ id: "encoders", tool: "encode", icon: "🔐", label: "Encoders & ciphers", blurb: "Hex, binary, octal, decimal, Base32, Base58, Ascii85, Morse, ROT13, Caesar, Atbash, HTML codes, \\u codes, punycode, NATO letters and more.", rows: 6,
+    sub: "Turn text into another code and back. Several of these are for fun or learning and are NOT secure ways to hide anything.",
+    fields: [sel("mode", "Code", [opt("hex", "Hexadecimal"), opt("binary", "Binary"), opt("octal", "Octal"), opt("decimal", "Decimal bytes"), opt("base32", "Base32"), opt("base58", "Base58"), opt("ascii85", "Ascii85"), opt("morse", "Morse code"), opt("rot13", "ROT13"), opt("caesar", "Caesar shift"), opt("atbash", "Atbash"), opt("html", "HTML codes (&amp;)"), opt("unicode", "\\u escapes"), opt("punycode", "Punycode (web names)"), opt("nato", "NATO spelling alphabet"), opt("reverse", "Reverse text"), opt("upsidedown", "Upside down")], "hex", ""),
+      sel("dir", "Direction", [opt("encode", "Text → code"), opt("decode", "Code → text")], "encode", "", { show: (v) => !["rot13", "atbash", "reverse", "upsidedown", "nato"].includes(v.mode) }), num("shift", "Shift by", 3, "", { min: -25, max: 25, show: when("mode", "caesar") }), sel("charset", "Text character set", CHARSETS, "utf-8", "", { show: (v) => ["hex", "binary", "octal", "decimal", "base32", "base58", "ascii85"].includes(v.mode) })] });
+
+  quickTool({ id: "checker", tool: "validate", icon: "✅", label: "Checkers", blurb: "Check an IBAN, card number, ISBN, email, phone number, IP address, UUID, JSON, web address or MAC address.", rows: 2, placeholder: "GB82 WEST 1234 5698 7654 32",
+    sub: "Checks the number's built-in checksum or shape. It cannot tell whether an account, mailbox or line really exists, because Fathom works offline.",
+    fields: [sel("kind", "Check a", [opt("iban", "IBAN (bank account)"), opt("card", "Card number (checksum)"), opt("isbn", "ISBN (book)"), opt("email", "Email address"), opt("phone", "Phone number (international form)"), opt("ip", "IP address"), opt("uuid", "UUID"), opt("json", "JSON"), opt("url", "Web address"), opt("mac", "MAC address")], "iban", "")] });
+
+  quickTool({ id: "nettool", tool: "network", icon: "🛰", label: "Network calculator", blurb: "Subnet maths: mask, range, usable hosts, wildcard, and splitting a network into smaller ones. IPv4 and IPv6.", rows: 2, placeholder: "192.168.1.0/24",
+    sub: "Type a network like 192.168.1.0/24 and see everything about it. Choose a bigger prefix to split it into smaller networks.", fields: [num("split", "Split into /… networks (0 = do not split)", 0, "For example 26 splits a /24 into four /26 networks.", { min: 0, max: 64 })] });
+
+  quickTool({ id: "crontool", tool: "cron", icon: "⏰", label: "Schedule (cron) explainer", blurb: "Explains a cron schedule in plain words.", rows: 2, placeholder: "30 8 * * 1-5",
+    sub: "Type the five parts of a cron schedule: minute, hour, day of the month, month, day of the week.", fields: [] });
+
+  quickTool({ id: "numtool2", tool: "numwords", icon: "🔡", label: "Numbers in words", blurb: "Write a number in words, or read a Roman numeral; also hex, binary and ordinals.", rows: 1, placeholder: "1234567   or   XLII", sub: "Type a number or a Roman numeral.", fields: [] });
+
+  quickTool({ id: "calctool", tool: "calc", icon: "🧮", label: "Calculator", blurb: "Type sums, one per line: percentages, powers, roots, trigonometry, factorials. Every line is answered.", rows: 8, placeholder: "12% of 250\n(3+4)*5^2\nsqrt(2)",
+    sub: "One calculation per line. Supports + - * / ^ % ( ), the words pi and e, and sqrt, sin, cos, tan, ln, log, exp, fact, round and more.", fields: [] });
+
+  quickTool({ id: "datetool", tool: "datecalc", icon: "📆", label: "Date calculator", blurb: "How many days between two dates, or what date is 90 days, 6 months or 10 working days away.", rows: 1, placeholder: "2026-10-29",
+    sub: "Type a start date like 2026-10-29.", fields: [sel("mode", "What to do", [opt("between", "Days between two dates"), opt("add", "Add or subtract time")], "between", ""), text("other", "Second date", "", "", when("mode", "between")), num("n", "How many", 90, "Use a negative number to go back.", { show: when("mode", "add") }), sel("unit", "Unit", [opt("days", "Days"), opt("weeks", "Weeks"), opt("months", "Months"), opt("years", "Years"), opt("workdays", "Working days (Mon-Fri)")], "days", "", { show: when("mode", "add") })] });
+
   // ====================================================================== file tools
   const field = (fn) => fn;
   const BARCODE_KINDS = [opt("code128", "Code 128", "Any text. The best all-round choice."), opt("code39", "Code 39", "Capitals, digits and - . $ / + %"), opt("ean13", "EAN-13", "Shop products. 12 digits (the 13th is added)."), opt("ean8", "EAN-8", "Small products. 7 digits."), opt("upca", "UPC-A", "US products. 11 digits."), opt("itf", "Interleaved 2 of 5", "Digits for cartons.")];
@@ -171,11 +222,61 @@
     text("fps_from", "Frame rate it was made for", "", "For example 23.976. Leave empty if not needed.", () => true), text("fps_to", "Frame rate of your video", "", "For example 25.", () => true),
     chk("html", "Remove formatting tags (<i>, <b>, <font>)", true, ""), chk("sdh", "Remove hearing-impaired notes [door slams] and speaker names", false, ""), chk("ads", "Remove adverts and credits", true, "Lines mentioning download sites."), chk("dedupe", "Merge repeated lines", true, ""), chk("overlap", "Fix overlapping times", true, ""),
     num("mindur", "Shortest time on screen (seconds, 0 = leave)", 0, "", { step: 0.1 }), num("maxdur", "Longest time on screen (seconds, 0 = leave)", 0, "", { step: 0.5 }), num("wrap", "Wrap lines at … characters (0 = leave)", 0, "42 is the usual choice.", { min: 0, max: 100 }),
-    sel("format", "Save as", [opt("srt", "SRT"), opt("vtt", "WebVTT"), opt("txt", "Plain text")], "srt", ""), sel("charset", "The file is written in", [opt("auto", "Detect automatically"), opt("utf-8", "UTF-8"), opt("cp1252", "Western Windows"), opt("cp1250", "Central European"), opt("cp1251", "Cyrillic"), opt("cp1253", "Greek"), opt("cp1254", "Turkish"), opt("cp1256", "Arabic"), opt("cp1255", "Hebrew"), opt("gbk", "Chinese (GBK)"), opt("big5", "Chinese (Big5)"), opt("shift_jis", "Japanese"), opt("euc-kr", "Korean")], "auto", "Fixes garbled letters."),
+    sel("format", "Save as", [opt("srt", "SRT (most common)"), opt("vtt", "WebVTT (web)"), opt("ass", "ASS (styled)"), opt("ssa", "SSA"), opt("sbv", "SBV (YouTube)"), opt("lrc", "LRC (lyrics)"), opt("txt", "Plain text"), opt("csv", "CSV table"), opt("tsv", "TSV table"), opt("json", "JSON")], "srt", ""), sel("font", "Font (for ASS and SSA)", ["Arial", "Segoe UI", "Tahoma", "Verdana", "Calibri", "Times New Roman", "Georgia", "Courier New", "Noto Sans", "Noto Naskh Arabic", "Noto Nastaliq Urdu", "Noto Sans Devanagari", "Noto Sans CJK"].map((x) => opt(x, x)), "Arial", "The player must have this font.", { show: (v) => v.format === "ass" || v.format === "ssa" }), num("fsize", "Letter size (ASS and SSA)", 24, "", { min: 8, max: 120, show: (v) => v.format === "ass" || v.format === "ssa" }), { id: "fcolor", type: "color", label: "Letter colour (ASS and SSA)", value: "#ffffff", tip: "", show: (v) => v.format === "ass" || v.format === "ssa" }, { id: "foutline", type: "color", label: "Outline colour (ASS and SSA)", value: "#000000", tip: "", show: (v) => v.format === "ass" || v.format === "ssa" }, sel("charset", "The file is written in", [opt("auto", "Detect automatically"), opt("utf-8", "UTF-8"), opt("cp1252", "Western Windows"), opt("cp1250", "Central European"), opt("cp1251", "Cyrillic"), opt("cp1253", "Greek"), opt("cp1254", "Turkish"), opt("cp1256", "Arabic"), opt("cp1255", "Hebrew"), opt("gbk", "Chinese (GBK)"), opt("big5", "Chinese (Big5)"), opt("shift_jis", "Japanese"), opt("euc-kr", "Korean")], "auto", "Fixes garbled letters."),
     sel("encoding", "Save the result as", [opt("utf8", "UTF-8 (best)"), opt("bom", "UTF-8 with marker (older TVs)"), opt("latin1", "Western Windows")], "utf8", "")];
   F.jobTool({ id: "subs", group: "edit", icon: "💬", label: "Fix subtitles", blurb: "Shift or stretch timing, fix garbled letters, clean tags and notes, convert between SRT, VTT and text.",
     title: "Fix subtitle files", sub: "Choose .srt, .vtt, .ass or .ssa files. Fathom reads the letters correctly, tidies them, and saves a fixed copy.", fields: SUB(),
     endpoint: "/api/toolbox/subs", body: (v) => F.baseBody(v, { options: v }), run: "Fix subtitles", noun: "subtitle file" });
+
+  const LANGS = F.LANGS;
+  const TR = () => [sel("target", "Translate into", LANGS.map(([v, l]) => opt(v, l)), "en", "The language the new subtitles are written in."), text("custom", "…or another language (type its name)", "", "Overrides the list. Works best for well-known languages.", () => true),
+    sel("source", "The subtitles are in", [opt("auto", "Detect automatically"), ...LANGS.map(([v, l]) => opt(v, l))], "auto", "Helps when the language is unusual."),
+    sel("layout", "Show", [opt("only", "Only the translation"), opt("top", "Translation on top, original below", "Handy for learning a language."), opt("bottom", "Original on top, translation below")], "only", ""),
+    { id: "notes", type: "textarea", label: "Notes for the translator (optional)", value: "", rows: 2, tip: "For example: 'It is a comedy, keep it informal' or 'Keep the names Ali and Sara as they are'." },
+    sel("tone", "Style", [opt("", "Natural"), opt("formal and polite", "Formal"), opt("casual and informal, like everyday speech", "Casual"), opt("simple words for children", "Simple (children)"), opt("keep slang and swearing as strong as the original", "Keep slang"), opt("literal, as close to the original wording as possible", "Literal")], "", "How the translation should sound."),
+    { id: "glossary", type: "textarea", label: "Fixed words (optional, one per line as original = translation)", value: "", rows: 3, tip: "For example: Dr. Khan = ڈاکٹر خان" },
+    num("wrap", "Break lines at … letters (0 = leave)", 0, "42 is the usual choice.", { min: 0, max: 100 }), chk("tidy", "Tidy afterwards (merge repeats, fix overlaps)", false, ""), num("mindur", "Shortest time on screen (seconds, 0 = leave)", 0, "", { step: 0.1 }), num("shift", "Move all subtitles later (+) or earlier (−) by (seconds)", 0, "", { step: 0.1 }),
+    num("batch", "Lines translated at a time", 20, "Smaller is more careful, larger is faster.", { min: 5, max: 60 }), sel("format", "Save as", [opt("srt", "SRT (most common)"), opt("vtt", "WebVTT (web)"), opt("ass", "ASS (styled)"), opt("ssa", "SSA"), opt("sbv", "SBV (YouTube)"), opt("lrc", "LRC (lyrics)"), opt("txt", "Plain text"), opt("csv", "CSV table"), opt("tsv", "TSV table"), opt("json", "JSON")], "srt", ""), chk("bom", "UTF-8 with marker (older TVs, right-to-left scripts)", false, "Some TVs only show Arabic, Urdu or Hindi correctly with this ticked."),
+    sel("charset", "The file is written in", [opt("auto", "Detect automatically"), opt("utf-8", "UTF-8"), opt("cp1252", "Western Windows"), opt("cp1256", "Arabic"), opt("cp1251", "Cyrillic")], "auto", "")];
+  F.jobTool({ id: "translatesubs", group: "edit", icon: "🌐", label: "Translate subtitles", blurb: "Translate subtitle files into another language with your assistant's AI model, keeping the timing.",
+    title: "Translate subtitles", sub: "Choose .srt, .vtt or .ass files. Fathom translates them with the AI model chosen in the Assistant settings (the free local one works) and keeps every time exactly. No subtitles yet? Make them first in Convert: pick a movie, choose SRT, and 'Translate to English' if you want English straight away.", fields: TR(),
+    endpoint: "/api/toolbox/translate", body: (v) => F.baseBody(v, { options: v }), run: "Translate", noun: "subtitle file", runTip: "Needs the Assistant to be set up (Settings in the Assistant tab). Long films take a while." });
+
+  F.jobTool({ id: "translatedocs", group: "edit", icon: "📚", label: "Translate documents", blurb: "Translate Word, PowerPoint, Excel, web pages, text, CSV, JSON and PDF text into any of 145 languages, keeping the layout.",
+    title: "Translate documents", sub: "Works with the AI model chosen in the Assistant settings (the free local one works). Word, PowerPoint, Excel, web pages, CSV and JSON keep their layout; a PDF becomes a text file. Mixed bold/italic inside one paragraph is simplified.", fields: TR().filter((f) => !["format", "bom", "charset", "wrap", "tidy", "mindur", "shift"].includes(f.id)).map((f) => (f.id === "layout" ? sel("layout", "Show", [opt("only", "Only the translation"), opt("both", "Translation, then the original")], "only", "") : f)),
+    endpoint: "/api/toolbox/translatedocs", body: (v) => F.baseBody(v, { options: v }), run: "Translate", noun: "document", runTip: "Needs the Assistant to be set up. Long documents take a while." });
+
+  const PAL = () => [num("count", "How many colours", 6, "2 to 24.", { min: 2, max: 24 }), sel("order", "Order", [opt("share", "Most common first"), opt("hue", "By hue (rainbow)"), opt("light", "Dark to light")], "share", ""), chk("skip_white", "Ignore white and near-white", false, "Handy for pictures on a white page."), chk("skip_black", "Ignore black and near-black", false, ""),
+    { id: "formats", type: "multi", label: "Save", value: ["png", "txt"], options: [opt("png", "Colour strip picture"), opt("txt", "Text list (hex, RGB, HSL)"), opt("css", "CSS variables"), opt("json", "JSON"), opt("gpl", "GIMP / Krita palette")], tip: "Pick as many as you like." },
+    sel("layout", "Strip direction", [opt("horizontal", "Left to right"), opt("vertical", "Top to bottom")], "horizontal", "", { show: (v) => (v.formats || []).includes("png") }), num("sw", "Swatch width", 120, "Pixels.", { min: 40, max: 400, show: (v) => (v.formats || []).includes("png") }), num("sh", "Swatch height", 160, "Pixels.", { min: 40, max: 600, show: (v) => (v.formats || []).includes("png") }), chk("label", "Write the colour code on each swatch", true, "", { show: (v) => (v.formats || []).includes("png") })];
+  F.jobTool({ id: "palette", group: "edit", icon: "🎨", label: "Colours from a picture", blurb: "Find the main colours in a picture and save them as a strip, a list, CSS, JSON or a design palette.",
+    title: "Colours from a picture", sub: "Fathom finds the main colours of each picture you add, from 2 to 24, and saves them in the forms you tick.", fields: PAL(),
+    endpoint: "/api/toolbox/palette", body: (v) => F.baseBody(v, { options: v }), run: "Find colours", noun: "picture" });
+
+  F.jobTool({ id: "contact", group: "edit", icon: "🖼", label: "Contact sheet", blurb: "Put many pictures on one sheet or on printable pages (A3, A4, A5, Letter) with names, a title and your colours.",
+    title: "Contact sheet", sub: "All the pictures you add go onto one big picture, or onto neat printable pages.", fields: [num("cols", "Pictures per row", 5, "", { min: 1, max: 20 }), num("thumb", "Picture size", 300, "Pixels.", { min: 60, max: 1200 }), num("gap", "Space between", 16, "", { min: 0, max: 100 }), num("pad", "Margin", 40, "", { min: 0, max: 300 }),
+      sel("fit", "Fit", [opt("fit", "Whole picture"), opt("crop", "Fill the square (crops)")], "fit", ""), chk("labels", "Write each file name under it", true, ""), chk("border", "Thin border around each", false, ""), text("title", "Title (optional)", "", "Printed at the top.", () => true),
+      sel("page", "Make", [opt("single", "One big picture"), opt("a4", "Pages: A4"), opt("letter", "Pages: US Letter"), opt("a3", "Pages: A3"), opt("a5", "Pages: A5")], "single", ""), chk("landscape", "Pages on their side", false, "", { show: (v) => v.page !== "single" }),
+      { id: "bg", type: "color", label: "Background", value: "#ffffff", tip: "" }, { id: "fg", type: "color", label: "Text colour", value: "#1e1e1e", tip: "" }, sel("format", "Save as", [opt("pdf", "PDF"), opt("png", "PNG"), opt("jpg", "JPEG"), opt("webp", "WebP")], "pdf", "")],
+    endpoint: "/api/toolbox/contact", body: (v) => F.baseBody(v, { options: v }), run: "Make the sheet", noun: "sheet" });
+
+  F.jobTool({ id: "wavepic", group: "edit", icon: "🌊", label: "Sound picture", blurb: "Draw a song or a video's sound as a waveform or a spectrogram picture, in your colours and size.",
+    title: "Sound picture", sub: "Choose songs or videos. Fathom draws what the sound looks like.", fields: [sel("kind", "Draw", [opt("wave", "Waveform (loudness over time)"), opt("spectrum", "Spectrogram (pitch over time)")], "wave", ""), num("w", "Width", 1600, "Pixels.", { min: 200, max: 8000 }), num("h", "Height", 400, "Pixels.", { min: 60, max: 4000 }),
+      { id: "fg", type: "color", label: "Wave colour", value: "#00a0ff", tip: "", show: when("kind", "wave") }, { id: "bg", type: "color", label: "Background", value: "#101220", tip: "", show: when("kind", "wave") }, chk("transparent", "Transparent background", false, "", { show: when("kind", "wave") }), chk("split", "Show each channel separately", false, "", { show: when("kind", "wave") }),
+      sel("scale", "Scale", [opt("lin", "Linear"), opt("log", "Logarithmic (quiet parts show more)")], "lin", ""), sel("draw", "Wave style", [opt("scale", "Filled and scaled"), opt("full", "Full height")], "scale", "", { show: when("kind", "wave") }),
+      sel("palette", "Colours", ["intensity", "channel", "rainbow", "moreland", "nebulae", "fire", "fiery", "fruit", "cool"].map((x) => opt(x, x)), "intensity", "", { show: when("kind", "spectrum") }), chk("legend", "Show the scales", true, "", { show: when("kind", "spectrum") })],
+    endpoint: "/api/toolbox/wave", body: (v) => F.baseBody(v, { options: v }), run: "Draw", noun: "file" });
+
+  reg({ id: "backup", group: "toolbox", icon: "💾", label: "Back up settings", blurb: "Save Fathom's settings, saved workflows and watch folders to one file, and put them back on this or another computer.", files: false, output: false }, (main) => {
+    main.append(F.titleBlock("Back up and restore settings", "Saves your choices (look, language, presets, saved workflows, watch folders) into a single small file. Your files and chats are not in it. Restore it on another computer or after a reinstall."));
+    const dir = h("input", { type: "text", placeholder: "Folder for the backup (empty = Documents\\Fathom backups)", style: "flex:1;min-width:260px" });
+    const msg = h("p", { class: "hint" });
+    main.append(h("h3", { text: "Back up" }), h("div", { class: "card-box" }, h("div", { class: "row", style: "gap:8px;flex-wrap:wrap" }, dir, h("button", { class: "btn small", onclick: async () => { const p = await F.pickOne("folder"); if (p) dir.value = p; } }, "Choose…"),
+      h("button", { class: "primary", onclick: async () => { try { const r = await post("/api/toolbox/backup", { output: { dir: dir.value.trim() } }); msg.textContent = "Saved: " + r.path; } catch (e) { msg.textContent = e.message; } } }, "Back up now"))),
+      h("h3", { text: "Restore", style: "margin-top:16px" }), (() => { const f = h("input", { type: "text", placeholder: "A fathom-settings-….json file", style: "flex:1;min-width:260px" });
+        return h("div", { class: "card-box" }, h("div", { class: "row", style: "gap:8px;flex-wrap:wrap" }, f, h("button", { class: "btn small", onclick: async () => { const p = await F.pickOne("files"); if (p) f.value = p; } }, "Choose…"),
+          h("button", { class: "primary", onclick: async () => { try { const r = await post("/api/toolbox/restore", { value: f.value.trim() }); msg.textContent = "Restored: " + r.restored.join(", ") + ". Restart Fathom to see everything."; } catch (e) { msg.textContent = e.message; } } }, "Restore"))); })(), msg);
+  });
 
   F.jobTool({ id: "burn", group: "edit", icon: "🎞", label: "Burn in subtitles", blurb: "Draw subtitles onto a video so they show everywhere. Choose size, colour, outline and position.",
     title: "Burn subtitles into a video", sub: "Add the videos on the left. Fathom uses a subtitle file with the same name beside each video, or the one you pick below.", fields: [text("subs", "Subtitle file (empty = same name as the video)", "", "Full path of an .srt, .vtt or .ass file.", () => true),
@@ -185,8 +286,14 @@
 
   // ====================================================================== workflows and watch folders
   const TO = ["pdf", "docx", "xlsx", "pptx", "txt", "md", "html", "csv", "json", "png", "jpg", "webp", "avif", "gif", "bmp", "tiff", "svg", "ico", "mp4", "webm", "mkv", "mov", "gif", "mp3", "wav", "flac", "m4a", "ogg", "opus", "epub", "zip"];
-  const STEP_FIELDS = { convert: () => [sel("to", "Convert to", [...new Set(TO)].map((x) => opt(x, x.toUpperCase())), "pdf", "The type each file becomes.")], ocrpdf: OCRF, watermark: WM, nobg: BG, subs: SUB };
-  const LABELS = { convert: "Convert to another type", ocrpdf: "Make PDF searchable (OCR)", watermark: "Remove PDF watermark", nobg: "Remove picture background", subs: "Fix subtitles" };
+  const speechShow = (v) => ["srt", "vtt", "txt"].includes(v.to);
+  const CONVERT = () => [sel("to", "Convert to", [...new Set([...TO, "srt", "vtt"])].map((x) => opt(x, x.toUpperCase())), "pdf", "The type each file becomes. SRT or VTT turns the speech in a video or song into subtitles."),
+    sel("whisper_model", "Speech model", [opt("tiny", "Tiny"), opt("base", "Base"), opt("small", "Small"), opt("medium", "Medium"), opt("large-v3", "Large v3 (best)"), opt("large-v3-turbo", "Large v3 turbo"), opt("distil-large-v3", "Distil large v3 (English)")], "base", "Bigger is more accurate and slower.", { show: speechShow }),
+    sel("whisper_task", "Speech result", [opt("transcribe", "Same language as spoken"), opt("translate", "Translate to English")], "transcribe", "", { show: speechShow }),
+    sel("whisper_lang", "Spoken language", [opt("", "Detect automatically"), ...(F.SPOKEN || []).map((c) => opt(c, (LANGS.find((x) => x[0] === c) || [c, c])[1]))], "", "", { show: speechShow }),
+    num("whisper_maxchars", "Break subtitle lines at about … letters (0 = as spoken)", 0, "", { min: 0, max: 200, show: speechShow }), text("whisper_prompt", "Names and words to expect", "", "", speechShow)];
+  const STEP_FIELDS = { convert: CONVERT, ocrpdf: OCRF, watermark: WM, nobg: BG, subs: SUB, translate: TR };
+  const LABELS = { convert: "Convert to another type", ocrpdf: "Make PDF searchable (OCR)", watermark: "Remove PDF watermark", nobg: "Remove picture background", subs: "Fix subtitles", translate: "Translate subtitles" };
   /** an editable list of steps: [{action, options}] */
   function stepEditor(initial = []) {
     const root = h("div"); const steps = []; 
@@ -206,6 +313,14 @@
     return { el: h("div", {}, root, addBtn), get: () => steps.map((s) => ({ action: s.pick.value, options: s.form.values() })), set: (list) => { steps.length = 0; root.replaceChildren(); list.forEach((s) => add(s.action, s.options || {})); }, count: () => steps.length };
   }
 
+  const PRESETS = [
+    ["Movie → English subtitles", [{ action: "convert", options: { to: "srt", whisper_task: "translate", whisper_maxchars: 42 } }]],
+    ["Movie → subtitles in another language", [{ action: "convert", options: { to: "srt", whisper_maxchars: 42 } }, { action: "translate", options: { target: "ur", wrap: 42, tidy: true } }]],
+    ["Scan → searchable PDF", [{ action: "ocrpdf", options: {} }]],
+    ["PDF: remove watermark → searchable", [{ action: "watermark", options: { mode: "auto" } }, { action: "ocrpdf", options: {} }]],
+    ["Photo: remove background → WebP", [{ action: "nobg", options: { format: "webp", crop: true } }]],
+    ["Subtitles: fix → translate", [{ action: "subs", options: { format: "srt" } }, { action: "translate", options: { target: "en" } }]]];
+  const presetBar = (ed) => h("div", { class: "row", style: "gap:6px;flex-wrap:wrap;margin-bottom:8px" }, h("span", { class: "hint", text: "Start from:" }), ...PRESETS.map(([l, st]) => h("button", { class: "btn small", tip: "Fills in the steps below. You can change anything.", onclick: () => ed.set(JSON.parse(JSON.stringify(st))) }, l)));
   reg({ id: "workflow", group: "toolbox", icon: "⛓", label: "Workflows", blurb: "Chain steps (for example remove watermark → make searchable → convert) and run them on any files. Save your chains to reuse.", files: true, output: true }, (main) => {
     main.append(F.titleBlock("Workflows", "Build a chain of steps. Each step works on what the step before it made. Add your files on the left, press Run, and only the final results are kept. Save a chain to use it again."));
     const ed = stepEditor([{ action: "convert", options: {} }]); const nameBox = h("input", { type: "text", placeholder: "Name for this workflow", style: "min-width:220px" });
@@ -214,7 +329,7 @@
     const save = h("button", { class: "btn", tip: "Remember this chain under the name on the left." }, "Save"); save.onclick = () => { const n = nameBox.value.trim(); if (!n) return F.toast("Give it a name first."); const all = F.load("flows", {}); all[n] = ed.get(); F.save("flows", all); refreshSaved(); saved.value = n; F.toast("Saved"); };
     const del = h("button", { class: "btn", tip: "Forget the chosen saved workflow." }, "Delete"); del.onclick = () => { const all = F.load("flows", {}); delete all[saved.value]; F.save("flows", all); refreshSaved(); };
     refreshSaved();
-    main.append(h("div", { class: "row", style: "gap:8px;flex-wrap:wrap;margin-bottom:10px" }, saved, nameBox, save, del), ed.el);
+    main.append(presetBar(ed), h("div", { class: "row", style: "gap:8px;flex-wrap:wrap;margin-bottom:10px" }, saved, nameBox, save, del), ed.el);
     const go = h("button", { class: "primary", tip: "Runs the steps on the files in your list." }, "Run workflow"); const stop = h("button", { class: "btn", hidden: true }, "Stop"); const status = h("p", { class: "hint" }); const results = h("div");
     main.append(h("div", { class: "row", style: "margin-top:14px;gap:8px" }, go, stop), status, results);
     let fid = "", poll = 0;
@@ -248,7 +363,7 @@
     const addBtn = h("button", { class: "primary", tip: "Start watching." }, "Start watching this folder");
     addBtn.onclick = async () => { const v = form.values(); if (!folder.value.trim()) return F.toast("Choose a folder first."); if (!ed.count()) return F.toast("Add a step."); rules.push({ ...v, name: v.name || folder.value.split(/[\\/]/).filter(Boolean).pop(), folder: folder.value.trim(), outdir: out.value.trim(), steps: ed.get(), enabled: true }); folder.value = ""; await saveAll(); F.toast("Watching"); };
     main.append(h("h3", { text: "Watching now" }), list, logBox, h("h3", { text: "Add a watched folder", style: "margin-top:18px" }), h("div", { class: "card-box" },
-      h("div", { class: "row", style: "gap:8px;flex-wrap:wrap" }, folder, h("button", { class: "btn small", onclick: pk(folder) }, "Choose…")), h("div", { class: "row", style: "gap:8px;flex-wrap:wrap;margin-top:8px" }, out, h("button", { class: "btn small", onclick: pk(out) }, "Choose…")), form.el), h("h3", { text: "What to do with each new file" }), ed.el, h("div", { class: "row", style: "margin-top:12px" }, addBtn));
+      h("div", { class: "row", style: "gap:8px;flex-wrap:wrap" }, folder, h("button", { class: "btn small", onclick: pk(folder) }, "Choose…")), h("div", { class: "row", style: "gap:8px;flex-wrap:wrap;margin-top:8px" }, out, h("button", { class: "btn small", onclick: pk(out) }, "Choose…")), form.el), h("h3", { text: "What to do with each new file" }), presetBar(ed), ed.el, h("div", { class: "row", style: "margin-top:12px" }, addBtn));
     load(); setInterval(() => { if (F.currentTool && F.currentTool.id === "watch") load(); }, 5000);
   });
 })();

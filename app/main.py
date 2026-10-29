@@ -1795,6 +1795,48 @@ def toolbox_subs(b: OpBody):
     return toolbox.subs_start(b.paths, b.recursive, b.options, b.output)
 
 
+@_post("/api/toolbox/translate")
+def toolbox_translate(b: OpBody):
+    from app import toolbox
+    return toolbox.translate_start(b.paths, b.recursive, b.options, b.output)
+
+
+@_post("/api/toolbox/translatedocs")
+def toolbox_translatedocs(b: OpBody):
+    from app import toolbox
+    return toolbox.translate_docs_start(b.paths, b.recursive, b.options, b.output)
+
+
+@_post("/api/toolbox/palette")
+def toolbox_palette(b: OpBody):
+    from app import toolbox
+    return toolbox.palette_start(b.paths, b.recursive, b.options, b.output)
+
+
+@_post("/api/toolbox/contact")
+def toolbox_contact(b: OpBody):
+    from app import toolbox
+    return toolbox.contact_start(b.paths, b.recursive, b.options, b.output)
+
+
+@_post("/api/toolbox/wave")
+def toolbox_wave(b: OpBody):
+    from app import toolbox
+    return toolbox.wave_start(b.paths, b.recursive, b.options, b.output)
+
+
+@_post("/api/toolbox/backup")
+def toolbox_backup(b: OpBody):
+    from app import toolbox
+    return toolbox.backup_settings(b.output)
+
+
+@_post("/api/toolbox/restore")
+def toolbox_restore(b: OpBody):
+    from app import toolbox
+    return toolbox.restore_settings(b.value)
+
+
 @_post("/api/toolbox/burn")
 def toolbox_burn(b: OpBody):
     from app import toolbox
@@ -1804,7 +1846,8 @@ def toolbox_burn(b: OpBody):
 @app.get("/api/toolbox/caps", dependencies=[Depends(guard)])
 def toolbox_caps():
     from app import toolbox
-    return {**toolbox.subs_check(), "barcodes": toolbox.KINDS}
+    from app.toolbox_quick2 import unit_lists
+    return {**toolbox.subs_check(), "barcodes": toolbox.KINDS, "units": unit_lists()}
 
 
 # ---------------------------------------------------------------- automation: workflows and watch folders
@@ -1853,3 +1896,17 @@ def watch_get():
 def watch_set(b: FlowIn):
     from app import automate
     return {"rules": automate.set_rules(b.rules)}
+
+
+@app.get("/api/incoming", dependencies=[Depends(guard)])
+def incoming():
+    """Files sent with 'Send to > Fathom' (see launch.py). Read once, then cleared."""
+    f = data_root() / "incoming.json"
+    try:
+        if not f.exists():
+            return {"paths": []}
+        paths = json.loads(f.read_text(encoding="utf-8"))
+        f.unlink(missing_ok=True)
+        return {"paths": [p for p in paths if isinstance(p, str) and Path(p).exists()]}
+    except Exception:
+        return {"paths": []}

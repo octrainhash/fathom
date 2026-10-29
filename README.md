@@ -132,6 +132,12 @@ Search also reads inside files that used to be skipped: old Office files (.doc .
 - **Subtitles:** fix timing, garbled letters and clutter, convert SRT/VTT/text, and burn subtitles into a video.
 - **Workflows and Watch folders:** chain steps, save them, and run them automatically on every new file in a folder.
 
+- **Translate everything:** subtitles and whole documents (Word, PowerPoint, Excel, web pages, text, CSV, JSON, PDF text) into any of 145 languages with your assistant's AI model, with style, fixed-word and layout choices. Speech in a movie can be turned into subtitles in any of 100 spoken languages, or straight into English, with every speech model size.
+- **Subtitle formats:** read and write SRT, WebVTT, ASS, SSA, SBV, LRC, text, CSV, TSV and JSON.
+- **More Toolbox helpers:** data converter (JSON, YAML, CSV, XML, TOML, SQL, Markdown tables), login-token decoder, pattern (regex) tester, text compare, unit converter, encoders and ciphers, checkers (IBAN, card, ISBN, email, phone, IP…), network calculator, schedule (cron) explainer, numbers in words, calculator and date calculator.
+- **Pictures and sound:** colours from a picture, contact sheets (including printable pages), waveform and spectrogram pictures.
+- **Send to Fathom, Portable mode, Back up settings.**
+
 ## Fathom 1.0
 - First official release. Everything above, plus a **setup wizard** (`Fathom-Setup.vbs`) that lets you choose where the Fathom app, its data and every program go, shows what each drive has free, and shows live progress.
 - **Free Assistant** that runs on your own PC (Ollama): fast `qwen3-vl:4b-instruct` model by default, extra working memory and keep-alive so answers start quickly, and a self-repair for the "model not found" problem (`Fix-Ollama.cmd`).

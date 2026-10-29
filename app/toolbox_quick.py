@@ -769,6 +769,9 @@ TOOLS = {"json": t_json, "base64": t_base64, "url": t_url, "uuid": t_uuid, "pass
 def run(tool: str, text: str, options: dict) -> dict:
     fn = TOOLS.get(tool)
     if not fn:
+        from app.toolbox_quick2 import TOOLS2
+        fn = TOOLS2.get(tool)
+    if not fn:
         raise UserError("Unknown helper.")
     if len(text) > 8_000_000:
         raise UserError("That is too much text for this helper (limit 8 million characters).")

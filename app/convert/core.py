@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Shared pieces of every converter: options, a work context (progress, cancel, helper processes) and the engine base class."""
 from __future__ import annotations
 
@@ -97,6 +98,12 @@ class Opts:
     still_seconds: float = 5.0       # picture -> video: how long
     # text / speech
     whisper_model: str = "base"
+    whisper_task: str = "transcribe"   # transcribe | translate (speech in any language -> English text)
+    whisper_lang: str = ""             # spoken language code, empty = detect
+    whisper_beam: int = 5              # 1 (fast) .. 10 (careful)
+    whisper_vad: bool = True           # skip stretches with no speech
+    whisper_prompt: str = ""           # names and words to expect
+    whisper_maxchars: int = 0          # cut subtitle lines at about this many letters (0 = as spoken)
     password: str = ""
     level: int = 9                   # archive compression 1-9
 
