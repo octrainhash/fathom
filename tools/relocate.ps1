@@ -1,8 +1,8 @@
 # Moves the big programs Fathom uses to the folders you chose and leaves a small link behind, so Windows and the programs
 # still find them where they expect (nothing else has to change). Programs that are not installed yet get an empty
-# link ready, so the installer writes straight there. (Ollama's models are the exception: no link, see below.) Safe to run twice. Called by Move-Fathom-to-D.cmd.
+# link ready, so the installer writes straight there. (Ollama's models are the exception: no link, see below.) Safe to run twice. Called by Move-Fathom.cmd.
 param(
-  [string]$Dest = 'D:\Softwares\Programs',
+  [string]$Dest = (Join-Path $env:SystemDrive '\Fathom Programs'),
   [string]$Log = '',
   [switch]$Lite,
   [string]$Skip = '',

@@ -4,17 +4,29 @@
 
 **Website and downloads: https://fathomfile.pages.dev** · License: AGPL-3.0-or-later · Questions: fathomfile@hotmail.com
 
-One Windows app for files: find things inside anything, convert any file to any other supported type, shrink or enlarge files, a big toolbox, a forensics lab, network sync and a drives manager. Every option has a hover tip in plain words.
+**Fathom is one free Windows app for everything you do with files, and it all runs on your own PC.** Nothing is uploaded and no account is needed.
+
+* **Find** words, numbers, objects, faces, handwriting and spoken words inside any file, photo or video.
+* **Convert** between hundreds of file types (documents, pictures, audio, video, e-books, archives, data, 3D, fonts and more), with every option left to you.
+* **Subtitles for any movie:** make them by listening (every spoken language, with word timing), translate them into 140+ languages, fix, shift, merge and burn them in.
+* **Toolbox:** barcodes and QR codes, searchable PDFs (OCR), background remover, watermark remover, colour palettes, contact sheets, audio waveform pictures, and text and developer helpers (JSON, JWT, regex, hashes, converters, units, calculator and more).
+* **Workflows and watch folders:** chain steps and run them on a folder automatically.
+* **Edit, sign, stamp, print, scan and read PDFs;** a forensics lab, a drives manager, a torrent client and network sync.
+* **A private AI assistant** that sees your screen and files and runs fully offline through Ollama (or use your own Claude or OpenAI key).
+* **Right-click any file > Send to > Fathom,** a portable mode for a USB stick, and one-click settings backup and restore.
+* **Everything is installed up front.** Pick the folder once and the installer downloads every program and model (speech, object search, faces, handwriting reader, assistant), so no feature ever stops to say "downloading, please wait".
+
+Every option has a hover tip in plain words. Version 1.2.
 
 ## Install
 **Which system?** Windows: use `Fathom.bat` (below). **macOS:** double-click `Fathom.command`. **Linux / Raspberry Pi / WSL:** run `./fathom.sh`. **Phone, tablet, Chromebook, iPad:** run Fathom in server mode on a computer or Docker (see *Any device* below) and open its link in the device's browser. Docker: `docker compose up -d`.
 
 ### Windows
-1. Extract the zip anywhere (right-click > Extract All).
-2. **Setup wizard (you choose where everything goes):** double-click **`Fathom-Setup.vbs`**. A window with pages asks what to install (LibreOffice, Calibre, 7-Zip, the free local assistant) and **which folder or drive** gets the Fathom app, its data, and each program. If nothing happens, open a Command Prompt in the folder and run `Fathom.bat setup` (same wizard).
-3. **Direct way (no questions):** right-click **Fathom.bat** > **Run as administrator**. It downloads and sets up everything where you extracted it (Python packages, FFmpeg, LibreOffice, Calibre, 7-Zip, speech and vision models) and starts the app. Next time use the **Fathom** shortcut it makes. `Fathom.bat lite` skips the big programs.
-4. Logs: `%LOCALAPPDATA%\Fathom\setup.log`, `bat.log`, `launch.log`, `server.log`. Send `setup.log` if something fails.
-5. Something wrong? Double-click a script in the `support` folder (see `support\README-SUPPORT.txt`) or `Fix-Ollama.cmd`.
+1. Download **fathom.zip** from the website (there is one download: the setup window asks Full or Lite). Right-click it > Extract All.
+2. Double-click **`Fathom-Setup.vbs`**. Choose **Everything (recommended)** or the smaller **Lite** and press Next. Pick **one folder**: the Fathom app, its data, Python, LibreOffice, Calibre, 7-Zip, Ollama and every model are all installed inside it, on that one drive. Press **Install** and wait; when it finishes Fathom opens and everything is ready, with nothing left to download.
+3. **Something wrong, or something missing?** Open `Fathom-Setup.vbs` again and click **Problems and Fixes**. Pick your problem from the list (Fathom will not start, the assistant says "model not found", move Fathom to another folder or drive, update, uninstall, install a missing program, and more) and you get a `.bat` file that fixes it. If your problem is not in the list, type it in the box and a `.bat` file is made for you: it tries the closest fixes, and if none fit it repairs everything and saves a report to send.
+4. Logs: `setup.log`, `bat.log`, `launch.log`, `server.log` in Fathom's data folder (Setup window > Show log folder). Send `setup.log` if something fails.
+5. To run Fathom without the wizard: right-click **Fathom.bat** > Run as administrator.
 
 ## Any device, any system
 * **macOS / Linux**: `Fathom.command` (macOS) or `./fathom.sh` (Linux and macOS). The first run finds Python 3.12 or fetches it with `uv`, creates a private environment in `~/.fathom`, installs everything, and opens Fathom (in its own window if the system's window libraries are present, otherwise in your browser). On Linux it also adds a menu entry. Windows-only tools (WIA/TWAIN scanners, NTFS/ReFS drive tools, hidden NTFS streams) are not available there; the rest is.
@@ -30,7 +42,7 @@ One Windows app for files: find things inside anything, convert any file to any 
 |---|---|
 | **Assistant** | **Assistant** (chat that sees your open tab and files, and can read, make and change files), **Settings** (which AI, key, approval mode, folder for its work, image/voice services, handwriting reader, what it remembers) |
 | Search | Find (words, numbers, objects, **handwriting**; clips with a held, circled still), **Read handwriting** (pages and photos to typed text, with proof pictures), Data finder (emails, keys, cards…) |
-| Convert | Convert (search + dropdown of every file type), Encodings (text encodings, Base64, Hex…) |
+| Convert | Convert (search + dropdown of every file type; change a video's container, such as MP4 to MKV, without re-encoding when the format allows, which is very fast; plus volume, loudness, fades, bass and treble, speed, cut a part, turn and mirror, light and colour, clean-up, encoding speed, graphics-card encoding and picture adjustments, even from one type to the same type), Encodings (text encodings, Base64, Hex…) |
 | Size | Smaller / bigger (zero or random fill), Pack (ZIP, 7z, TAR, SFX .exe, passwords, parts) |
 | Edit | **Editor** (open any file and change what is inside: text and code, Word/PowerPoint/OpenDocument paragraphs, Excel cells, database rows, PDF text, pictures with draw/write/box/blur/crop; also reachable from the ✏️ button beside every file you add), **Find & replace** (Word, Excel, PowerPoint, OpenDocument, e-books, HTML/XML, text in any encoding, PDF, SQLite databases, old Office files, pictures, even raw bytes), **Stamp** (ready-made, own words, own picture, watermarks, page numbers), **Sign** (draw, type, or clean up a photo of your signature), Merge, Split, Join parts, Cut, Rotate/flip, PDF pages, Pictures out, Scan pages, **Print** (digital to paper), **Photocopy** (paper to paper: scan then print), QR codes (make and read), Touch up pictures, Import from scanner (WIA, TWAIN and SANE drivers; see the scanner notes below) |
 | Protect | **Redact** (permanently black out emails, phone numbers, card numbers or your own words), Lock (AES-256 / ChaCha20), PDF password, Shredder (NIST, DoD, VSITR, HMG, Gutmann), Checksums, Hidden details, Photo details, Dates, Permissions |
@@ -121,6 +133,17 @@ In **Search > Find**, pick one of six choices, then (optionally) change **Look i
 
 Search also reads inside files that used to be skipped: old Office files (.doc .xls .ppt and relatives, through LibreOffice), SQLite databases (.db .sqlite, every table and row), e-mail files (.eml: subject, sender, body and attachments), camera RAW photos (.cr2 .nef .arw .dng ...; full decode with the optional `rawpy`, otherwise the embedded preview picture) and more plain-text types (.vcf .ics .reg .m3u .nfo .mht ...).
 
+## Changing volume, quality and more while you convert
+In **Convert**, open the sections on the left. Every setting has a hover tip, and all of them work together:
+* **Sound options and adjustments** (sound files and the sound of a video): volume (0-500%), even out the loudness, bass and treble, reduce hiss, fade in and out, mono or stereo, sample rate, sound quality.
+* **Cut a part and change speed** (video and sound): keep only a part between two seconds, and play faster or slower (0.25x to 4x, the pitch of the sound is kept).
+* **Video and GIF options**: quality, size, frame rate, keep the sound, **Only copy (no re-encode)**, encoding speed (faster or smaller file) and **Use the graphics card (NVIDIA)**.
+* **Video look**: turn and mirror, brightness, contrast, colour strength, black and white, reduce grain, sharpen.
+* **Picture adjustments**: brightness, contrast, colour strength, sharpness, blur, fix the lighting, black and white, invert, turn, mirror, print sharpness (DPI), next to the existing quality, size and metadata options.
+* **Same type, only your changes.** To make a song louder, a video faster or a photo brighter without changing its type, choose the file's own type as the target (for example MP3 to MP3) after you set what to change. Fathom saves a new file and never overwrites the original; with nothing to change it says so instead of making a pointless copy. "Convert everything to…" never picks the same type by itself.
+* **Copy first.** When you only change the container (MP4 to MKV) and pick nothing that changes the picture, Fathom copies the video as it is, in seconds, and only re-makes the sound if you changed it. Choosing quality, size, frame rate, speed, turn, colours or the graphics card means the picture is re-encoded.
+* **Graphics card.** Fathom's built-in FFmpeg has no NVIDIA encoder. For the graphics-card option, install a full FFmpeg once (double-click `Get-FFmpeg-GPU.bat`, which uses winget) so it is on your PATH. Without one, or if the card cannot do the job, Fathom uses the processor.
+
 ## Fathom 1.2
 
 - **Welcome popup only once:** Fathom now keeps the same port between runs and saves your settings in `prefs.json` inside its data folder, so the first-run tour no longer comes back.
@@ -138,6 +161,14 @@ Search also reads inside files that used to be skipped: old Office files (.doc .
 - **Pictures and sound:** colours from a picture, contact sheets (including printable pages), waveform and spectrogram pictures.
 - **Send to Fathom, Portable mode, Back up settings.**
 
+## Fathom 1.1
+
+**Also in 1.1:** save your settings as **presets**; choose which **sound track** of a video to keep; **cut silence** from audio; set an exact **quality (CRF)**; **deinterlace** old video; change a video's **shape** (crop or black bars); for pictures: **crop to a shape**, **auto-trim** empty edges, **border**, **fewer colours** and a choice of **resize method**.
+
+- **Adjustments while converting:** volume, loudness, fades, bass and treble, noise reduction, mono or stereo, sample rate, cut a part, speed, turn and mirror, light and colour for video and pictures, blur and sharpen, DPI, encoding speed and graphics-card encoding. Conversions to the same type apply only your changes.
+- **Copy-only video:** changing a container (MP4 to MKV) is a copy by default and takes seconds; it falls back to a normal conversion if copying fails.
+- **Update:** the version is 1.1.0, so `Fathom.bat` updates an installed 1.0 copy the next time it runs.
+
 ## Fathom 1.0
 - First official release. Everything above, plus a **setup wizard** (`Fathom-Setup.vbs`) that lets you choose where the Fathom app, its data and every program go, shows what each drive has free, and shows live progress.
 - **Free Assistant** that runs on your own PC (Ollama): fast `qwen3-vl:4b-instruct` model by default, extra working memory and keep-alive so answers start quickly, and a self-repair for the "model not found" problem (`Fix-Ollama.cmd`).
@@ -148,7 +179,7 @@ Search also reads inside files that used to be skipped: old Office files (.doc .
 - **Voice:** on Windows the answer is now read with the computer's own voice first (the window's reader is the fallback), and the assistant knows it can speak.
 - **Ollama in the background:** the free assistant's engine starts by itself, hidden (no window, only its llama icon in the system tray), when Fathom opens, and closes again when Fathom closes. If it was stopped meanwhile, the assistant starts it again by itself, so "Could not reach Ollama" no longer happens. An Ollama you started yourself is never closed by Fathom.
 - **Setup fixes:** choosing "keep my data in Windows' usual place" no longer stops the move step; programs an earlier setup left in another folder are moved to the folder you choose (the old one is only renamed to `<name>.moved`); failures show the real reason on the "Setup did not finish" page; `Fix-Ollama` removes only the small folder link and leaves no `.ollama.junction-old` behind.
-- **Uninstall-Fathom.cmd** removes what Fathom installed, wherever you put it (asks first; your own files are never touched). **Lite** download (`fathom-lite.zip`, or `Fathom.bat lite`; `Fathom.bat full` adds the rest later). **Fathom Online**: a no-install, in-browser page on the website (nothing is uploaded).
+- **Uninstall-Fathom.cmd** removes what Fathom installed, wherever you put it (asks first; your own files are never touched). **Lite** (choose it in the setup window, or `Fathom.bat lite`; `Fathom.bat full` adds the rest later). **Fathom Online**: a no-install, in-browser page on the website (nothing is uploaded).
 
 ## Updating Fathom (important)
 Extract the new zip anywhere and run its `Fathom-Setup.vbs` or `Fathom.bat`. Fathom always re-points its Desktop and Start-menu shortcuts to the folder you ran, so the newest copy is the one that starts. Click **?** in the app: the last line of the menu shows the version and the folder that is running. If that is not the folder you expect, you are running an old copy.

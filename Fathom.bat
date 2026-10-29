@@ -135,11 +135,11 @@ if exist "%APPDIR%\install-choice.txt" for /f "usebackq eol=# tokens=1,* delims=
 if /i "%~1"=="here" set "FATHOM_DEST="
 if /i "%~1"=="full" set "FATHOM_SKIP="
 if not defined FATHOM_DEST goto :after_d
-if not exist "%APPDIR%\Move-Fathom-to-D.cmd" goto :after_d
+if not exist "%APPDIR%\Move-Fathom.cmd" goto :after_d
 if not exist "%APPDIR%\tools\relocate.ps1" goto :after_d
 echo Putting Fathom in %FATHOM_DEST% as you chose ...
 echo.
-call "%APPDIR%\Move-Fathom-to-D.cmd" auto
+call "%APPDIR%\Move-Fathom.cmd" auto
 set "MVRC=%errorlevel%"
 rem 0 = the app was copied to the chosen folder and is starting from there; this window is done
 if "%MVRC%"=="0" exit /b 0

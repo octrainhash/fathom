@@ -25,7 +25,7 @@ browser. Nothing is uploaded. Otherwise there are two ways to install:
   Fathom installs inside the folder you extracted and Windows keeps the programs in
   their usual places. Best if you just want it to work, or want a portable copy.
 
-Full or Lite? The website offers fathom.zip (Full) and fathom-lite.zip (Lite). Full has
+Full or Lite? The website offers one download, fathom.zip; the setup window asks Full or Lite. Full has
 everything: Word, Excel, PowerPoint and old Office files, e-books, RAR and 100+ more
 formats, plus the free AI assistant that runs on your own PC. It needs about 12 GB free
 and a long first download. Lite is the small version: search, pictures, audio, video, PDF,
@@ -60,7 +60,7 @@ let the PC sleep while it installs.
 ---------------------
 A. With the setup wizard (you choose what and where)
 
-1. Download fathom.zip (or fathom-lite.zip) from the website. Right-click it > Extract
+1. Download fathom.zip from the website. Right-click it > Extract
    All... > Extract. Do not run anything from inside the zip window.
 2. Open the extracted fathom folder and double-click Fathom-Setup.vbs. If Windows shows
    a blue SmartScreen box (Fathom is not code-signed yet), click More info, then Run
@@ -152,7 +152,7 @@ only once and can continue if the connection drops (run Fathom.bat repair).
 * Lite to Full: run Fathom.bat full from the Fathom folder (as administrator), or run
   Fathom-Setup.vbs again and tick the parts you want. It installs the missing programs
   and the assistant.
-* Full to Lite for a fresh install: use the Lite zip or untick the extras in the wizard.
+* Full to Lite for a fresh install: pick Lite or untick the extras in the wizard.
   Programs that are already installed are left alone.
 * Repair or update at any time: Fathom.bat repair (or support\8-Repair-Fathom.cmd). It
   never reinstalls what is already there.

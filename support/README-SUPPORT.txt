@@ -23,6 +23,6 @@ which you can send to whoever helps you. None of them deletes anything.
 13-Portable-Mode-On    Keeps your settings, history and saved tools in a FathomData folder next to the app, so they travel with it (USB stick).
 14-Portable-Mode-Off   Goes back to keeping them in the Windows user folder.
 
-Also in the Fathom folder: Fix-Ollama.cmd (the same as 2), Move-Fathom-to-D.cmd (move Fathom to another drive) and
+Also in the Fathom folder: Fix-Ollama.cmd (the same as 2), Move-Fathom.cmd (move Fathom to another folder or drive) and
 Uninstall-Fathom.cmd (removes Fathom; asks before each part and never touches your own files).
 These scripts find your Fathom folder by themselves, wherever you installed it.

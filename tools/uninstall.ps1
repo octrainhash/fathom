@@ -7,7 +7,7 @@ function Is-Link([string]$p) {
   if (-not (Test-Path -LiteralPath $p)) { return $false }
   return [bool]((Get-Item -LiteralPath $p -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)
 }
-# Removes a folder. If it is only a link to D:\Softwares\..., the link and the folder it points to are removed (never anything outside Softwares).
+# Removes a folder. If it is only a link, the link is removed, and the folder it points to only when Fathom created it (listed in places.txt).
 # the folders Fathom made while installing (written down by the installer: link|real folder); only these are ever removed from other places
 $ownedTargets = @()
 $placesFile = Join-Path (Join-Path $env:LOCALAPPDATA 'Fathom') 'places.txt'
@@ -18,7 +18,7 @@ function Remove-Place([string]$p, [string]$label, [switch]$Owned) {
     $t = (Get-Item -LiteralPath $p -Force).Target
     if ($t -is [array]) { $t = $t[0] }
     & cmd.exe /c rmdir "$p" | Out-Null          # removes only the link
-    if ($t -and ($Owned -or ($t -like '*\Softwares\*') -or ($ownedTargets -contains $t)) -and (Test-Path -LiteralPath $t)) { Remove-Item -LiteralPath $t -Recurse -Force -ErrorAction SilentlyContinue }
+    if ($t -and ($Owned -or ($ownedTargets -contains $t)) -and (Test-Path -LiteralPath $t)) { Remove-Item -LiteralPath $t -Recurse -Force -ErrorAction SilentlyContinue }
     elseif ($t -and (Test-Path -LiteralPath $t)) { Say "  $label : the link was removed; the folder it pointed to ($t) was left alone because Fathom did not create it." }
   }
   else { Remove-Item -LiteralPath $p -Recurse -Force -ErrorAction SilentlyContinue }
@@ -79,13 +79,10 @@ if ($wipeProgs) {
 }
 else { Say '  kept.' }
 
-# 5. the app folder and the leftovers on D:
+# 5. the app folder
 Say '[5/5] The Fathom app folder...'
-$log = 'D:\Softwares\Fathom-move.log'
+$log = Join-Path $env:TEMP 'Fathom-move.log'
 if (Test-Path -LiteralPath $log) { Remove-Item -LiteralPath $log -Force -ErrorAction SilentlyContinue }
-foreach ($d in 'D:\Softwares\Programs', 'D:\Softwares') {
-  if ((Test-Path -LiteralPath $d) -and -not (Get-ChildItem -LiteralPath $d -Force -ErrorAction SilentlyContinue)) { Remove-Item -LiteralPath $d -Force -ErrorAction SilentlyContinue }
-}
 $ok = $AppDir -and (Test-Path -LiteralPath (Join-Path $AppDir 'launch.py')) -and (Test-Path -LiteralPath (Join-Path $AppDir 'app\main.py'))
 if ($ok) {
   $cmd = Join-Path $env:TEMP 'fathom_uninstall_cleanup.cmd'

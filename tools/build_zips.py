@@ -1,4 +1,4 @@
-"""Builds fathom.zip (everything) and fathom-lite.zip (the same plus an empty LITE marker file) from this folder.
+"""Builds fathom.zip (the one download; the setup window offers Full or Lite) from this folder.
 Usage: python tools/build_zips.py [output_dir]"""
 import sys
 import zipfile
@@ -28,6 +28,6 @@ def build(name: str, lite: bool) -> Path:
 
 
 if __name__ == "__main__":
-    for n, l in (("fathom.zip", False), ("fathom-lite.zip", True)):
+    for n, l in (("fathom.zip", False),):
         t = build(n, l)
         print(t, t.stat().st_size)

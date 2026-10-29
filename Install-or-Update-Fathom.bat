@@ -5,7 +5,7 @@ rem  Double-click it from anywhere (Downloads is fine). It finds your Fathom fol
 rem  new program files over it (your settings, chats and data are NOT touched, nothing is deleted) and then runs the Fathom
 rem  setup, which only installs what is MISSING and skips what you already have (Python, LibreOffice, Calibre, 7-Zip, Ollama,
 rem  the AI models).   Options:   Install-or-Update-Fathom.bat lite          small install (no LibreOffice, Calibre, local AI)
-rem                               Install-or-Update-Fathom.bat "D:\Fathom"  use this folder
+rem                               Install-or-Update-Fathom.bat "C:\MyFolder"  use this folder
 rem  Open this file in Notepad to read every step. Log: %LOCALAPPDATA%\Fathom\install-update.log
 rem =====================================================================================================================
 setlocal EnableExtensions EnableDelayedExpansion
@@ -30,7 +30,6 @@ for %%a in (%*) do (
   if /i "%%~a"=="lite" (set "MODE=lite") else if /i "%%~a"=="full" (set "MODE=full") else if exist "%%~a\" set "TARGET=%%~fa"
 )
 set "ZIPNAME=fathom.zip"
-if /i "%MODE%"=="lite" set "ZIPNAME=fathom-lite.zip"
 
 set "DATA=%LOCALAPPDATA%\Fathom"
 if not exist "%DATA%" mkdir "%DATA%" >nul 2>&1

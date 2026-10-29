@@ -36,7 +36,7 @@ def _whisper_sizes() -> list[str]:
         return [x for x in (t.strip() for t in raw.replace(";", ",").split(",")) if x in WHISPER_SIZES]
     if os.environ.get("FATHOM_LITE") == "1":
         return ["tiny", "base", "small"]
-    return ["tiny", "base", "small", "medium", "large-v3-turbo"]
+    return list(WHISPER_SIZES)   # Full install: every speech model, so nothing ever says "downloading the speech model" later
 
 
 def ensure_speech(size: str = "") -> None:
