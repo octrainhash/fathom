@@ -764,8 +764,13 @@ def setup_ollama() -> None:
 
 
 def download_models() -> bool:
-    step(8, "Downloading the AI models (object search is about 600 MB, one time only)")
-    rc = run([venv_python(), "-m", "app.bootstrap"], check=False, cwd=ROOT, env=app_env())
+    step(8, "Downloading every AI model Fathom uses (speech, object search, faces, handwriting - several GB, one time only, so nothing downloads later)")
+    env = app_env()
+    if LITE:
+        env["FATHOM_LITE"] = "1"
+    if CHOICE.get("WHISPER"):
+        env["FATHOM_WHISPER"] = CHOICE["WHISPER"]   # e.g. WHISPER=all in install-choice.txt downloads every speech model
+    rc = run([venv_python(), "-m", "app.bootstrap"], check=False, cwd=ROOT, env=env)
     if rc != 0:
         say("  !! A model download did not finish. Fathom will retry it the first time you use that feature.")
     setup_ollama()
