@@ -256,6 +256,30 @@ function Show-Fixes {
 }
 
 # ----------------------------------------------------------------------------------------------- the window
+# finds a Fathom that is already installed (the setup remembers its folder in app-dir.txt)
+function Get-Installed {
+  try {
+    $f = Join-Path $env:LOCALAPPDATA 'Fathom\app-dir.txt'
+    if (-not (Test-Path -LiteralPath $f)) { return $null }
+    $a = ((Get-Content -LiteralPath $f -ErrorAction Stop | Select-Object -First 1) + '').Trim().Trim('"')
+    if (-not $a) { return $null }
+    if (-not (Test-Path -LiteralPath (Join-Path $a 'Fathom.bat'))) { return $null }
+    if ($a.TrimEnd('\').ToLower() -eq $AppDir.TrimEnd('\').ToLower()) { return $null }
+    $ver = ''
+    try { $m = Select-String -LiteralPath (Join-Path $a 'app\paths.py') -Pattern '^VERSION\s*=\s*"([^"]+)"' | Select-Object -First 1; if ($m) { $ver = $m.Matches[0].Groups[1].Value } } catch {}
+    $skip = $null
+    try {
+      $ic = Join-Path $a 'install-choice.txt'
+      if (Test-Path -LiteralPath $ic) {
+        foreach ($ln in (Get-Content -LiteralPath $ic)) { if ($ln -match '^SKIP=(.*)$') { $skip = @($matches[1] -split ',' | Where-Object { $_ }) } }
+      }
+    } catch {}
+    $leaf = Split-Path -Leaf $a.TrimEnd('\')
+    $root = Split-Path -Parent $a.TrimEnd('\')
+    return @{ App = $a.TrimEnd('\'); Root = $root; Leaf = $leaf; Version = $ver; Skip = $skip }
+  } catch { return $null }
+}
+
 function Show-Wizard {
   Add-Type -AssemblyName System.Windows.Forms
   Add-Type -AssemblyName System.Drawing
@@ -450,7 +474,29 @@ function Show-Wizard {
   $ui.FinText = New-Label '' 24 54 670 330
   $p6.Controls.AddRange(@($ui.FinTitle, $ui.FinText))
 
-  $pages = @($p0, $p1, $p2, $p3, $p4, $p5, $p6)
+  # ---- page 7: Fathom is already installed: what to do
+  $p7 = New-Page
+  $mRows = @(
+    @('open',   'Open Fathom',            'Start Fathom now.'),
+    @('update', 'Update',                 'Put this newer version over the installed one. Your history, settings and results are kept.'),
+    @('repair', 'Repair',                 'Fix a Fathom that will not start, or that lost a file. Reinstalls only what is missing.'),
+    @('add',    'Add programs',           'Add LibreOffice, Calibre, 7-Zip or the free assistant if you left them out before.'),
+    @('move',   'Move Fathom',            'Move the whole of Fathom (app, data, programs, models) to another folder or drive.'),
+    @('fixes',  'Problems and Fixes',     'Pick a problem, or describe it, and get a fix file.'),
+    @('remove', 'Remove Fathom',          'Take Fathom off this PC. It asks before each part. Your own files are never touched.')
+  )
+  $ui.M = @{}
+  $my = 8
+  foreach ($mr in $mRows) {
+    $b = New-Button $mr[1] 24 $my 190 38; $b.Font = $fontBold
+    $d = New-Label $mr[2] 230 ($my + 2) 470 36; $d.ForeColor = $gray
+    $p7.Controls.AddRange(@($b, $d)); $ui.M[$mr[0]] = $b
+    $my += 52
+  }
+  $ui.MFresh = New-Button 'Install a new copy somewhere else...' 24 ($my + 4) 260 28
+  $p7.Controls.Add($ui.MFresh)
+
+  $pages = @($p0, $p1, $p2, $p3, $p4, $p5, $p6, $p7)
   foreach ($p in $pages) { $content.Controls.Add($p) }
   $titles = @(
     @(('Welcome to Fathom ' + $Version), 'This wizard installs Fathom and the things it works with, where you choose.'),
@@ -459,7 +505,8 @@ function Show-Wizard {
     @('Shortcuts', 'How you will open Fathom.'),
     @('Ready to install', 'Check your choices.'),
     @('Installing Fathom', 'Please keep this window open. Downloads are the long part.'),
-    @('Finished', '')
+    @('Finished', ''),
+    @('Fathom Manager', 'Fathom is already installed. What would you like to do?')
   )
 
   # ---- tool tips
@@ -652,13 +699,18 @@ function Show-Wizard {
     $st.Page = $n
     for ($i = 0; $i -lt $pages.Count; $i++) { $pages[$i].Visible = ($i -eq $n) }
     $ui.Title.Text = $titles[$n][0]; $ui.Sub.Text = $titles[$n][1]
+    $ui.Next.Visible = ($n -ne 7)
     $ui.Back.Enabled = ($n -ge 1 -and $n -le 4)
     $ui.Back.Visible = ($n -le 4)
     $ui.Next.Text = 'Next >'
     $ui.Next.Enabled = $true
     $ui.Cancel.Enabled = $true
     $ui.Cancel.Text = 'Cancel'
-    if ($n -eq 4) { $ui.Next.Text = 'Install'; [void](& $buildSummary) }
+    if ($n -eq 4) { $ui.Next.Text = 'Install'; if ($st.Mode -eq 'update') { $ui.Next.Text = 'Update' }; [void](& $buildSummary) }
+    if ($n -eq 2 -and $st.Mode -eq 'add') { $ui.Title.Text = 'Add programs'; $ui.Sub.Text = 'Tick what you want. Programs that are already installed are skipped.' }
+    if ($n -eq 4 -and $st.Mode -eq 'update') { $ui.Title.Text = 'Ready to update'; $ui.Sub.Text = 'Check your choices.' }
+    if ($n -eq 7) { $ui.Back.Visible = $false; $ui.Cancel.Text = 'Close'; $ui.Fixes.Visible = $false }
+    if ($n -ne 7) { $ui.Fixes.Visible = $true }
     if ($n -eq 5) { $ui.Next.Enabled = $false; $ui.Back.Visible = $false; $ui.Cancel.Text = 'Close' }
     if ($n -eq 6) { $ui.Next.Text = 'Finish'; $ui.Back.Visible = $false; $ui.Cancel.Visible = $false; $ui.Next.Enabled = $true }
     & $ui.Refresh
@@ -763,6 +815,20 @@ function Show-Wizard {
             $l3.TargetPath = $env:ComSpec; $l3.Arguments = '/c ""' + $bat + '" serve"'; $l3.WorkingDirectory = $st.Plan.App; $l3.WindowStyle = 7
             if (Test-Path -LiteralPath $ico2) { $l3.IconLocation = $ico2 }
             $l3.Save()
+          }
+        }
+      } catch {}
+      try {
+        $me = $env:FATHOM_SETUP_EXE
+        if ($me -and (Test-Path -LiteralPath $me) -and (Test-Path -LiteralPath $st.Plan.App)) {
+          $dst = Join-Path $st.Plan.App 'Fathom Manager.exe'
+          if ($me.ToLower() -ne $dst.ToLower()) { Copy-Item -LiteralPath $me -Destination $dst -Force }
+          if (Test-Path -LiteralPath $dst) {
+            $ws4 = New-Object -ComObject WScript.Shell
+            $l4 = $ws4.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Programs')) 'Fathom Manager.lnk'))
+            $l4.TargetPath = $dst; $l4.WorkingDirectory = $st.Plan.App
+            $ico4 = Join-Path $st.Plan.App 'assets\fathom.ico'; if (Test-Path -LiteralPath $ico4) { $l4.IconLocation = $ico4 }
+            $l4.Save()
           }
         }
       } catch {}
@@ -907,7 +973,63 @@ function Show-Wizard {
   $f.Add_Shown({ Set-DarkTitleBar $f ($st.ThemeName -eq 'dark') })
   & $applyTheme
   if ($env:FATHOM_WIZARD_TEST) { $global:WizUi = $ui; $global:WizSt = $st; $global:WizFns = @{ GetPlan = $getPlan; Validate = $validate; Summary = $buildSummary } }
-  & $setPage 0
+  # ---- the "already installed" page
+  $inst = Get-Installed
+  $loadInstalled = {
+    $ui.TbApp.Text = $inst.Root
+    if ($inst.Skip -ne $null) {
+      foreach ($k in 'libreoffice', 'calibre', '7zip', 'ollama') { if ($ui.Row.ContainsKey($k)) { $ui.Row[$k].Check.Checked = ($inst.Skip -notcontains $k) } }
+    }
+    & $ui.Refresh
+  }
+  $runFix = {
+    param($id)
+    foreach ($fx in $Fixes) {
+      if ($fx.Id -eq $id) {
+        $fp = Join-Path $env:TEMP ('Fathom-fix-' + $id + '.bat')
+        Set-Content -LiteralPath $fp -Value (New-FixBat $fx.Title $fx.Body '') -Encoding ASCII
+        try { Start-Process -FilePath $fp } catch {}
+        return
+      }
+    }
+  }
+  $needWizardInstall = {
+    if ($inst.Leaf -ne 'Fathom') {
+      [System.Windows.Forms.MessageBox]::Show("This Fathom was not put in place by this installer (its folder is not called 'Fathom'), so it cannot be updated here. Use Repair, or install a new copy.", 'Fathom Setup', 'OK', 'Information') | Out-Null
+      return $true
+    }
+    return $false
+  }
+  $ui.M['open'].Add_Click({
+    try { Start-Process -FilePath $env:ComSpec -ArgumentList ('/c ""' + (Join-Path $inst.App 'Fathom.bat') + '""') -WorkingDirectory $inst.App -WindowStyle Minimized } catch {}
+    $f.DialogResult = 'OK'; $f.Close()
+  })
+  $ui.M['update'].Add_Click({ if (& $needWizardInstall) { return }; $st.Mode = 'update'; & $loadInstalled; & $setPage 4 })
+  $ui.M['add'].Add_Click({ if (& $needWizardInstall) { return }; $st.Mode = 'add'; & $loadInstalled; & $setPage 2 })
+  $ui.M['repair'].Add_Click({
+    $bat = Join-Path $inst.App 'Fathom.bat'
+    $st.Started = Get-Date
+    try {
+      $st.Proc = Start-Process -FilePath $env:ComSpec -ArgumentList ('/c ""' + $bat + '" repair"') -WorkingDirectory $inst.App -Verb RunAs -WindowStyle Minimized -PassThru
+    } catch {
+      [System.Windows.Forms.MessageBox]::Show('Windows did not give permission, so nothing was changed. Click Repair again and choose Yes when Windows asks.', 'Fathom Setup', 'OK', 'Information') | Out-Null
+      return
+    }
+    $st.Plan = @{ App = $inst.App; Root = $inst.Root; DataHome = $true; Data = $DataHome; SendTo = $false; Serve = $false; Desk = $false; Start = $false; Dirs = @{}; On = @{} }
+    $st.Edition = 'full'; $st.Installing = $true
+    & $setPage 5
+    $ui.Timer.Start()
+  })
+  $ui.M['move'].Add_Click({ & $runFix 'move' })
+  $ui.M['remove'].Add_Click({ & $runFix 'uninstall' })
+  $ui.M['fixes'].Add_Click({ try { Show-Fixes } catch { [System.Windows.Forms.MessageBox]::Show('The fixes window could not open: ' + $_.Exception.Message, 'Fathom Setup') | Out-Null } })
+  $ui.MFresh.Add_Click({ $st.Mode = 'fresh'; & $setPage 0 })
+
+  if ($inst -and -not $env:FATHOM_FRESH) {
+    & $setPage 7
+    $f.Text = 'Fathom Manager'
+    $ui.Sub.Text = ('Installed: ' + $(if ($inst.Version) { $inst.Version } else { 'unknown version' }) + '   This installer: ' + $Version + '   Folder: ' + $inst.App)
+  } else { & $setPage 0 }
   [void]$f.ShowDialog()
   try { $ui.Timer.Stop() } catch {}
   return @{ Installed = $st.Done -and -not $st.Failed; Started = $st.Installing }
