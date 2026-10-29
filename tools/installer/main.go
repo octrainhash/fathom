@@ -82,6 +82,9 @@ func main() {
 	// -STA: Windows Forms needs it. The output is captured so that, if the window cannot open, the reason is shown instead of nothing.
 	cmd := exec.Command("powershell.exe", "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File", wiz)
 	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000} // no black console window
+	if self, e := os.Executable(); e == nil {
+		cmd.Env = append(os.Environ(), "FATHOM_SETUP_EXE="+self) // the wizard copies this installer into the Fathom folder
+	}
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
