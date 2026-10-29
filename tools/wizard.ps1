@@ -63,30 +63,84 @@ $Parts = @(
 # Each entry becomes a small .bat file the user can run. They find the installed Fathom by themselves (app-dir.txt), so they work from anywhere.
 function Q([string]$name) { return ('call :need "support\' + $name + '"' + "`r`n" + 'call "%APP%\support\' + $name + '"') }
 $Fixes = @(
-  @{ Id = 'repair'; Title = 'Fathom will not start, or something is missing (repair everything)'; Keys = 'repair start open crash blank missing broken error fix not working wont'; Desc = 'Runs the Fathom setup again: reinstalls whatever is missing or damaged (Python packages, models, programs). Your settings and files are kept.'; Body = 'call :need "Fathom.bat"' + "`r`n" + 'call "%APP%\Fathom.bat" repair' },
-  @{ Id = 'update'; Title = 'Update Fathom to the newest version (and install anything missing)'; Keys = 'update upgrade newest latest version old'; Desc = 'Downloads the newest Fathom, copies it over yours (data untouched) and installs anything missing.'; Body = 'call :need "tools\Install-or-Update-Fathom.bat"' + "`r`n" + 'call "%APP%\tools\Install-or-Update-Fathom.bat" "%APP%"' },
-  @{ Id = 'everything'; Title = 'Download every model now (so nothing downloads later)'; Keys = 'download model speech whisper wait downloading preinstall offline slow handwriting faces object'; Desc = 'Downloads all speech models, object search, faces and the handwriting reader now.'; Body = 'call :need "support\15-Get-Everything-Now.bat"' + "`r`n" + 'call "%APP%\support\15-Get-Everything-Now.bat"' },
-  @{ Id = 'check'; Title = 'Check everything and write a report'; Keys = 'check test status diagnose report health'; Desc = 'Reads the state of Fathom and Ollama and saves a report in Downloads.'; Body = (Q '1-Check-Everything.cmd') },
-  @{ Id = 'ollama'; Title = 'The assistant says "model not found" / Ollama problems'; Keys = 'ollama assistant model not found chat ai llm'; Desc = 'Repairs the free AI assistant: points Ollama at the right models folder and tests it.'; Body = (Q '2-Fix-Ollama.cmd') },
-  @{ Id = 'diagollama'; Title = 'Diagnose Ollama in detail'; Keys = 'ollama diagnose detail why'; Desc = 'Shows exactly what is wrong with Ollama.'; Body = (Q '7-Diagnose-Ollama.cmd') },
-  @{ Id = 'fastmodel'; Title = 'Assistant is slow: download the small fast model'; Keys = 'slow fast assistant small model speed lag'; Desc = 'Downloads a smaller, quicker assistant model.'; Body = (Q '5-Download-Fast-Model.cmd') },
-  @{ Id = 'speed'; Title = 'Speed test for the assistant'; Keys = 'speed slow test benchmark performance'; Desc = 'Measures how fast the assistant answers on this PC.'; Body = (Q '6-Speed-Test.cmd') },
-  @{ Id = 'voice'; Title = 'Microphone / voice (Talk button) does not work'; Keys = 'voice microphone mic talk speak audio hear'; Desc = 'Tests the microphone and the speech model.'; Body = (Q '10-Test-Voice.cmd') },
-  @{ Id = 'leftovers'; Title = 'Scan for leftover Fathom files'; Keys = 'leftover scan old files clean junk'; Desc = 'Lists leftover Fathom folders from older installs. Deletes nothing.'; Body = (Q '3-Scan-Leftovers.cmd') },
-  @{ Id = 'zipupdate'; Title = 'Update from a newer Fathom zip in Downloads'; Keys = 'zip update downloads offline'; Desc = 'Updates this Fathom from a zip you downloaded.'; Body = (Q '4-Update-From-Zip.cmd') },
-  @{ Id = 'logs'; Title = 'Open the logs and data folder'; Keys = 'log logs folder data open send'; Desc = 'Opens the folder with Fathom''s logs, so you can send them to someone.'; Body = 'start "" explorer.exe "%LOCALAPPDATA%\Fathom"' },
-  @{ Id = 'move'; Title = 'Move all of Fathom to another folder or drive'; Keys = 'move drive disk space full c d folder relocate'; Desc = 'Moves the app, its data and the programs into the folder you type. Checks the copy before deleting anything.'; Body = 'call :need "tools\Move-Fathom.cmd"' + "`r`n" + 'call "%APP%\tools\Move-Fathom.cmd"' },
-  @{ Id = 'uninstall'; Title = 'Remove Fathom from this PC (uninstall)'; Keys = 'uninstall remove delete erase'; Desc = 'Asks before each part: data and models, then the programs (LibreOffice, Calibre, 7-Zip, Ollama). Your own files are never touched.'; Body = 'call :need "tools\Uninstall-Fathom.cmd"' + "`r`n" + 'call "%APP%\tools\Uninstall-Fathom.cmd"' },
-  @{ Id = 'zip'; Title = 'Install 7-Zip (RAR / 7z archives)'; Keys = '7zip 7-zip rar archive missing install'; Desc = 'Installs 7-Zip with winget.'; Body = 'winget install -e --id 7zip.7zip --accept-source-agreements --accept-package-agreements' },
-  @{ Id = 'lo'; Title = 'Install LibreOffice (Word / Excel / PowerPoint)'; Keys = 'libreoffice office word excel powerpoint docx missing install'; Desc = 'Installs LibreOffice with winget.'; Body = 'winget install -e --id TheDocumentFoundation.LibreOffice --accept-source-agreements --accept-package-agreements' },
-  @{ Id = 'calibre'; Title = 'Install Calibre (e-books)'; Keys = 'calibre ebook epub mobi azw missing install'; Desc = 'Installs Calibre with winget.'; Body = 'winget install -e --id calibre.calibre --accept-source-agreements --accept-package-agreements' },
-  @{ Id = 'ollamainst'; Title = 'Install Ollama (the free assistant)'; Keys = 'ollama install missing assistant'; Desc = 'Installs Ollama with winget.'; Body = 'winget install -e --id Ollama.Ollama --accept-source-agreements --accept-package-agreements' },
-  @{ Id = 'ffmpeg'; Title = 'Use the graphics card for video (full FFmpeg)'; Keys = 'ffmpeg gpu nvidia graphics card encode video nvenc'; Desc = 'Installs a full FFmpeg so the NVIDIA option in Convert works.'; Body = 'call :need "tools\Get-FFmpeg-GPU.bat"' + "`r`n" + 'call "%APP%\tools\Get-FFmpeg-GPU.bat"' },
-  @{ Id = 'sendto'; Title = 'Add "Send to > Fathom" to the right-click menu'; Keys = 'send to right click menu context'; Desc = 'Right-click any file, Send to, Fathom.'; Body = (Q '11-Add-Send-To.cmd') },
-  @{ Id = 'sendtooff'; Title = 'Remove "Send to > Fathom"'; Keys = 'send to remove right click menu'; Desc = 'Takes Fathom out of the Send to menu.'; Body = (Q '12-Remove-Send-To.cmd') },
-  @{ Id = 'portable'; Title = 'Portable mode ON (settings travel with the folder)'; Keys = 'portable usb stick travel'; Desc = 'Keeps settings and history next to the app.'; Body = (Q '13-Portable-Mode-On.cmd') },
-  @{ Id = 'portableoff'; Title = 'Portable mode OFF'; Keys = 'portable usb off'; Desc = 'Goes back to the normal data place.'; Body = (Q '14-Portable-Mode-Off.cmd') }
+  @{ Id = 'repair'; Title = 'Fathom will not start, or something is missing (repair everything)'; Kw = 'repair start open crash blank missing broken error fix not working wont'; Desc = 'Runs the Fathom setup again: reinstalls whatever is missing or damaged (Python packages, models, programs). Your settings and files are kept.'; Body = 'call :need "Fathom.bat"' + "`r`n" + 'call "%APP%\Fathom.bat" repair' },
+  @{ Id = 'update'; Title = 'Update Fathom to the newest version (and install anything missing)'; Kw = 'update upgrade newest latest version old'; Desc = 'Downloads the newest Fathom, copies it over yours (data untouched) and installs anything missing.'; Body = 'call :need "tools\Install-or-Update-Fathom.bat"' + "`r`n" + 'call "%APP%\tools\Install-or-Update-Fathom.bat" "%APP%"' },
+  @{ Id = 'everything'; Title = 'Download every model now (so nothing downloads later)'; Kw = 'download model speech whisper wait downloading preinstall offline slow handwriting faces object'; Desc = 'Downloads all speech models, object search, faces and the handwriting reader now.'; Body = 'call :need "support\15-Get-Everything-Now.bat"' + "`r`n" + 'call "%APP%\support\15-Get-Everything-Now.bat"' },
+  @{ Id = 'check'; Title = 'Check everything and write a report'; Kw = 'check test status diagnose report health'; Desc = 'Reads the state of Fathom and Ollama and saves a report in Downloads.'; Body = (Q '1-Check-Everything.cmd') },
+  @{ Id = 'ollama'; Title = 'The assistant says "model not found" / Ollama problems'; Kw = 'ollama assistant model not found chat ai llm'; Desc = 'Repairs the free AI assistant: points Ollama at the right models folder and tests it.'; Body = (Q '2-Fix-Ollama.cmd') },
+  @{ Id = 'diagollama'; Title = 'Diagnose Ollama in detail'; Kw = 'ollama diagnose detail why'; Desc = 'Shows exactly what is wrong with Ollama.'; Body = (Q '7-Diagnose-Ollama.cmd') },
+  @{ Id = 'fastmodel'; Title = 'Assistant is slow: download the small fast model'; Kw = 'slow fast assistant small model speed lag'; Desc = 'Downloads a smaller, quicker assistant model.'; Body = (Q '5-Download-Fast-Model.cmd') },
+  @{ Id = 'speed'; Title = 'Speed test for the assistant'; Kw = 'speed slow test benchmark performance'; Desc = 'Measures how fast the assistant answers on this PC.'; Body = (Q '6-Speed-Test.cmd') },
+  @{ Id = 'voice'; Title = 'Microphone / voice (Talk button) does not work'; Kw = 'voice microphone mic talk speak audio hear'; Desc = 'Tests the microphone and the speech model.'; Body = (Q '10-Test-Voice.cmd') },
+  @{ Id = 'leftovers'; Title = 'Scan for leftover Fathom files'; Kw = 'leftover scan old files clean junk'; Desc = 'Lists leftover Fathom folders from older installs. Deletes nothing.'; Body = (Q '3-Scan-Leftovers.cmd') },
+  @{ Id = 'zipupdate'; Title = 'Update from a newer Fathom zip in Downloads'; Kw = 'zip update downloads offline'; Desc = 'Updates this Fathom from a zip you downloaded.'; Body = (Q '4-Update-From-Zip.cmd') },
+  @{ Id = 'logs'; Title = 'Open the logs and data folder'; Kw = 'log logs folder data open send'; Desc = 'Opens the folder with Fathom''s logs, so you can send them to someone.'; Body = 'start "" explorer.exe "%LOCALAPPDATA%\Fathom"' },
+  @{ Id = 'move'; Title = 'Move all of Fathom to another folder or drive'; Kw = 'move drive disk space full c d folder relocate'; Desc = 'Moves the app, its data and the programs into the folder you type. Checks the copy before deleting anything.'; Body = 'call :need "tools\Move-Fathom.cmd"' + "`r`n" + 'call "%APP%\tools\Move-Fathom.cmd"' },
+  @{ Id = 'uninstall'; Title = 'Remove Fathom from this PC (uninstall)'; Kw = 'uninstall remove delete erase'; Desc = 'Asks before each part: data and models, then the programs (LibreOffice, Calibre, 7-Zip, Ollama). Your own files are never touched.'; Body = 'call :need "tools\Uninstall-Fathom.cmd"' + "`r`n" + 'call "%APP%\tools\Uninstall-Fathom.cmd"' },
+  @{ Id = 'zip'; Title = 'Install 7-Zip (RAR / 7z archives)'; Kw = '7zip 7-zip rar archive missing install'; Desc = 'Installs 7-Zip with winget.'; Body = 'winget install -e --id 7zip.7zip --accept-source-agreements --accept-package-agreements' },
+  @{ Id = 'lo'; Title = 'Install LibreOffice (Word / Excel / PowerPoint)'; Kw = 'libreoffice office word excel powerpoint docx missing install'; Desc = 'Installs LibreOffice with winget.'; Body = 'winget install -e --id TheDocumentFoundation.LibreOffice --accept-source-agreements --accept-package-agreements' },
+  @{ Id = 'calibre'; Title = 'Install Calibre (e-books)'; Kw = 'calibre ebook epub mobi azw missing install'; Desc = 'Installs Calibre with winget.'; Body = 'winget install -e --id calibre.calibre --accept-source-agreements --accept-package-agreements' },
+  @{ Id = 'ollamainst'; Title = 'Install Ollama (the free assistant)'; Kw = 'ollama install missing assistant'; Desc = 'Installs Ollama with winget.'; Body = 'winget install -e --id Ollama.Ollama --accept-source-agreements --accept-package-agreements' },
+  @{ Id = 'ffmpeg'; Title = 'Use the graphics card for video (full FFmpeg)'; Kw = 'ffmpeg gpu nvidia graphics card encode video nvenc'; Desc = 'Installs a full FFmpeg so the NVIDIA option in Convert works.'; Body = 'call :need "tools\Get-FFmpeg-GPU.bat"' + "`r`n" + 'call "%APP%\tools\Get-FFmpeg-GPU.bat"' },
+  @{ Id = 'serve'; Title = 'Start Fathom in server mode (use it from a phone, tablet or another PC)'; Kw = 'server mode phone tablet remote browser network serve link token'; Desc = 'Starts Fathom as a private web server and shows a link. Open the link on any device on your network. Keep the window open.'; Body = 'call :need "Fathom.bat"' + "`r`n" + 'call "%APP%\Fathom.bat" serve' },
+  @{ Id = 'serveoff'; Title = 'Stop starting the server with Windows'; Kw = 'server startup windows remove auto start boot'; Desc = 'Removes the Fathom Server entry from Windows startup.'; Body = 'del /f /q "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Fathom Server.lnk"' },
+  @{ Id = 'sendto'; Title = 'Add "Send to > Fathom" to the right-click menu'; Kw = 'send to right click menu context'; Desc = 'Right-click any file, Send to, Fathom.'; Body = (Q '11-Add-Send-To.cmd') },
+  @{ Id = 'sendtooff'; Title = 'Remove "Send to > Fathom"'; Kw = 'send to remove right click menu'; Desc = 'Takes Fathom out of the Send to menu.'; Body = (Q '12-Remove-Send-To.cmd') },
+  @{ Id = 'portable'; Title = 'Portable mode ON (settings travel with the folder)'; Kw = 'portable usb stick travel'; Desc = 'Keeps settings and history next to the app.'; Body = (Q '13-Portable-Mode-On.cmd') },
+  @{ Id = 'portableoff'; Title = 'Portable mode OFF'; Kw = 'portable usb off'; Desc = 'Goes back to the normal data place.'; Body = (Q '14-Portable-Mode-Off.cmd') }
 )
+
+# ----------------------------------------------------------------------------------------------- look: dark and light
+function Get-ThemeName {
+  try {
+    $f1 = Join-Path $env:APPDATA 'FathomSetup\theme.txt'
+    if (Test-Path -LiteralPath $f1) { $v = (Get-Content -LiteralPath $f1 -ErrorAction Stop | Select-Object -First 1).Trim(); if ($v -eq 'dark' -or $v -eq 'light') { return $v } }
+  } catch {}
+  try { $r = Get-ItemPropertyValue -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -Name AppsUseLightTheme -ErrorAction Stop; if ($r -eq 0) { return 'dark' } } catch {}
+  return 'light'
+}
+function Save-ThemeName([string]$n) {
+  try { $d1 = Join-Path $env:APPDATA 'FathomSetup'; if (-not (Test-Path -LiteralPath $d1)) { New-Item -ItemType Directory -Path $d1 -Force | Out-Null }; Set-Content -LiteralPath (Join-Path $d1 'theme.txt') -Value $n -Encoding ASCII } catch {}
+}
+function Get-Theme([string]$name) {
+  function C($h) { return [System.Drawing.ColorTranslator]::FromHtml($h) }
+  if ($name -eq 'dark') {
+    return @{ Name = 'dark'; Bg = (C '#1B1E24'); Head = (C '#14171C'); Input = (C '#2A2F39'); Btn = (C '#2F3541'); Border = (C '#3A404C'); Text = (C '#E8EAED'); Muted = (C '#9AA3AF'); Accent = (C '#FFC83D'); AccentText = (C '#1B1E24'); Ok = (C '#7FE0A0'); Bad = (C '#FF8A80') }
+  }
+  return @{ Name = 'light'; Bg = (C '#F4F5F7'); Head = (C '#FFFFFF'); Input = (C '#FFFFFF'); Btn = (C '#E9ECF1'); Border = (C '#D3D8E0'); Text = (C '#1F2328'); Muted = (C '#5F6670'); Accent = (C '#FFC83D'); AccentText = (C '#1B1E24'); Ok = (C '#0F7B3F'); Bad = (C '#B3261E') }
+}
+function Apply-Theme($ctl, $t, $pbg) {
+  $bgHere = $pbg
+  if (-not $bgHere) { $bgHere = $t.Bg }
+  if ($ctl.Name -eq 'head') { $bgHere = $t.Head }
+  if ($ctl -is [System.Windows.Forms.Form]) { $ctl.BackColor = $t.Bg; $ctl.ForeColor = $t.Text }
+  elseif ($ctl -is [System.Windows.Forms.TextBox]) { $ctl.BackColor = $t.Input; $ctl.ForeColor = $t.Text; $ctl.BorderStyle = 'FixedSingle' }
+  elseif ($ctl -is [System.Windows.Forms.ListBox]) { $ctl.BackColor = $t.Input; $ctl.ForeColor = $t.Text; $ctl.BorderStyle = 'FixedSingle' }
+  elseif ($ctl -is [System.Windows.Forms.Button]) {
+    $ctl.FlatStyle = 'Flat'; $ctl.FlatAppearance.BorderSize = 1; $ctl.Cursor = [System.Windows.Forms.Cursors]::Hand
+    if ($ctl.Tag -eq 'primary') { $ctl.BackColor = $t.Accent; $ctl.ForeColor = $t.AccentText; $ctl.FlatAppearance.BorderColor = $t.Accent; $ctl.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9) }
+    else { $ctl.BackColor = $t.Btn; $ctl.ForeColor = $t.Text; $ctl.FlatAppearance.BorderColor = $t.Border }
+  }
+  elseif ($ctl -is [System.Windows.Forms.Label]) {
+    if ($ctl.BorderStyle -eq 'Fixed3D') { $ctl.BorderStyle = 'None'; $ctl.BackColor = $t.Border; $ctl.Height = 1 }
+    else {
+      if ($ctl.Tag -ne 'muted' -and $ctl.ForeColor.R -eq 96 -and $ctl.ForeColor.G -eq 96 -and $ctl.ForeColor.B -eq 96) { $ctl.Tag = 'muted' }
+      if ($ctl.Tag -eq 'muted') { $ctl.ForeColor = $t.Muted } else { $ctl.ForeColor = $t.Text }
+      $ctl.BackColor = $bgHere
+    }
+  }
+  elseif ($ctl -is [System.Windows.Forms.CheckBox] -or $ctl -is [System.Windows.Forms.RadioButton]) { $ctl.BackColor = $bgHere; $ctl.ForeColor = $t.Text }
+  elseif ($ctl -is [System.Windows.Forms.Panel]) { $ctl.BackColor = $bgHere }
+  elseif ($ctl -is [System.Windows.Forms.PictureBox]) { $ctl.BackColor = $bgHere }
+  foreach ($k in $ctl.Controls) { Apply-Theme $k $t $bgHere }
+}
+function Set-DarkTitleBar($form, [bool]$dark) {
+  try {
+    if (-not ('Fathom.FathomDwm' -as [type])) { Add-Type -Namespace Fathom -Name FathomDwm -MemberDefinition '[System.Runtime.InteropServices.DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(System.IntPtr h, int a, ref int v, int s);' -ErrorAction Stop }
+    $v = 0; if ($dark) { $v = 1 }
+    [void][Fathom.FathomDwm]::DwmSetWindowAttribute($form.Handle, 20, [ref]$v, 4)
+  } catch {}
+}
 
 function New-FixBat([string]$title, [string]$body, [string]$problem) {
   $L = @()
@@ -127,7 +181,7 @@ function New-ProblemBat([string]$text) {
   $words = @($text.ToLower() -split '[^a-z0-9\-]+' | Where-Object { $_.Length -ge 3 })
   $scored = @()
   foreach ($fx in $Fixes) {
-    $hay = ($fx.Title + ' ' + $fx.Keys).ToLower()
+    $hay = ($fx.Title + ' ' + $fx.Kw).ToLower()
     $sc = 0; foreach ($w in $words) { if ($hay.Contains($w)) { $sc++ } }
     if ($sc -gt 0) { $scored += [pscustomobject]@{ Fix = $fx; Score = $sc } }
   }
@@ -171,6 +225,9 @@ function Show-Fixes {
   $bClose = New-Object System.Windows.Forms.Button; $bClose.Text = 'Close'; $bClose.Location = New-Object System.Drawing.Point(656, 520); $bClose.Size = New-Object System.Drawing.Size(90, 30)
   $d.Controls.AddRange(@($l1, $lb, $desc, $bGet, $l2, $tb, $bMake, $note, $bClose))
   $d.CancelButton = $bClose
+  $bGet.Tag = 'primary'; $bMake.Tag = 'primary'
+  $thm = Get-Theme (Get-ThemeName); Apply-Theme $d $thm
+  $d.Add_Shown({ Set-DarkTitleBar $d ($thm.Name -eq 'dark') })
 
   $save = {
     param($name, $content)
@@ -205,7 +262,7 @@ function Show-Wizard {
   [System.Windows.Forms.Application]::EnableVisualStyles()
 
   $ui = @{}      # every control, by name
-  $st = @{ PrevMode = 'one'; Page = 0; Started = $null; Proc = $null; Done = $false; Failed = $false; Plan = $null; Installing = $false; StepStart = @{}; Edition = 'full' }
+  $st = @{ PrevMode = 'one'; Page = 0; Started = $null; Proc = $null; Done = $false; Failed = $false; Plan = $null; Installing = $false; StepStart = @{}; Edition = 'full'; OkCol = [System.Drawing.Color]::DarkGreen; BadCol = [System.Drawing.Color]::Firebrick }
 
   $fontText = New-Object System.Drawing.Font('Segoe UI', 9)
   $fontBold = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
@@ -258,13 +315,15 @@ function Show-Wizard {
 
   # header
   $head = New-Object System.Windows.Forms.Panel
+  $head.Name = 'head'
   $head.Location = New-Object System.Drawing.Point(0, 0); $head.Size = New-Object System.Drawing.Size(720, 64); $head.BackColor = [System.Drawing.Color]::White
-  $ui.Title = New-Label '' 20 10 560 26; $ui.Title.Font = $fontBig; $ui.Title.BackColor = [System.Drawing.Color]::White
-  $ui.Sub = New-Label '' 22 38 580 20; $ui.Sub.ForeColor = $gray; $ui.Sub.BackColor = [System.Drawing.Color]::White
+  $ui.Title = New-Label '' 20 8 550 28; $ui.Title.Font = $fontBig; $ui.Title.BackColor = [System.Drawing.Color]::White
+  $ui.Sub = New-Label '' 22 38 550 20; $ui.Sub.ForeColor = $gray; $ui.Sub.BackColor = [System.Drawing.Color]::White
   $pic = New-Object System.Windows.Forms.PictureBox
   $pic.Location = New-Object System.Drawing.Point(656, 8); $pic.Size = New-Object System.Drawing.Size(48, 48); $pic.SizeMode = 'Zoom'; $pic.BackColor = [System.Drawing.Color]::White
   try { $png = Join-Path $AppDir 'assets\fathom.png'; if (Test-Path -LiteralPath $png) { $ms2 = New-Object IO.MemoryStream(, [IO.File]::ReadAllBytes($png)); $pic.Image = [System.Drawing.Image]::FromStream($ms2) } } catch {}
-  $head.Controls.AddRange(@($ui.Title, $ui.Sub, $pic))
+  $ui.ThemeBtn = New-Button 'Light' 580 18 64 28
+  $head.Controls.AddRange(@($ui.Title, $ui.Sub, $pic, $ui.ThemeBtn))
   $f.Controls.Add($head)
   $line1 = New-Object System.Windows.Forms.Label
   $line1.Location = New-Object System.Drawing.Point(0, 64); $line1.Size = New-Object System.Drawing.Size(720, 2); $line1.BorderStyle = 'Fixed3D'
@@ -287,6 +346,7 @@ function Show-Wizard {
   $ui.Details.Visible = $false
   $f.Controls.AddRange(@($ui.Back, $ui.Next, $ui.Cancel, $ui.Details, $ui.Fixes))
   $f.AcceptButton = $ui.Next
+  $ui.Next.Tag = 'primary'
 
   $tt = New-Object System.Windows.Forms.ToolTip
   $tt.AutoPopDelay = 12000
@@ -296,13 +356,13 @@ function Show-Wizard {
   $p0.Controls.Add((New-Label ('Fathom finds things inside any file, converts any file to any other supported type, and has a big toolbox, a private AI assistant, a forensics lab and more. Everything runs on your own PC and nothing is sent to us.') 24 14 670 52))
   $p0.Controls.Add((New-Label 'What do you want to install?' 24 78 400 20)); $p0.Controls[$p0.Controls.Count - 1].Font = $fontBold
   $ui.RAll = New-Radio 'Everything (recommended): Fathom, LibreOffice, Calibre, 7-Zip, the free AI assistant and Search by meaning' 38 104 650 $true
-  $p0.Controls.Add((New-Label 'One click does it all, nothing else to choose. Everything is downloaded NOW, including every speech model, so no feature ever says ''downloading, please wait''. Needs about 30 GB free and a long first download. Anything already installed is skipped.' 60 126 620 20)); $p0.Controls[$p0.Controls.Count - 1].ForeColor = $gray
-  $ui.RLite = New-Radio 'Smallest (Lite): Fathom only' 38 154 650 $false
-  $p0.Controls.Add((New-Label 'Search, pictures, audio, video, PDF, text and data tools. Needs about 3 GB. You can add the rest later by running Fathom.bat full.' 60 176 620 36)); $p0.Controls[$p0.Controls.Count - 1].ForeColor = $gray
-  $ui.RCustom = New-Radio 'Let me choose each part' 38 218 650 $false
-  $p0.Controls.Add((New-Label 'You will tick the programs yourself on the Programs page.' 60 240 620 20)); $p0.Controls[$p0.Controls.Count - 1].ForeColor = $gray
+  $p0.Controls.Add((New-Label 'One click does it all, nothing else to choose. Everything is downloaded NOW, including every speech model, so no feature ever says ''downloading, please wait''. Needs about 30 GB free and a long first download. Anything already installed is skipped.' 60 126 620 36)); $p0.Controls[$p0.Controls.Count - 1].ForeColor = $gray
+  $ui.RLite = New-Radio 'Smallest (Lite): Fathom only' 38 168 650 $false
+  $p0.Controls.Add((New-Label 'Search, pictures, audio, video, PDF, text and data tools. Needs about 3 GB. You can add the rest later by opening this setup window again.' 60 190 620 36)); $p0.Controls[$p0.Controls.Count - 1].ForeColor = $gray
+  $ui.RCustom = New-Radio 'Let me choose each part' 38 234 650 $false
+  $p0.Controls.Add((New-Label 'You will tick the programs yourself on the Programs page.' 60 256 620 20)); $p0.Controls[$p0.Controls.Count - 1].ForeColor = $gray
   $p0.Controls.AddRange(@($ui.RAll, $ui.RLite, $ui.RCustom))
-  $p0.Controls.Add((New-Label ('On the next page you choose ONE folder; everything (the app, its data and every program) goes inside it. Windows will ask for permission (administrator) once, when the installation starts. Please keep your PC awake and connected to the internet while it installs.') 24 292 670 60))
+  $p0.Controls.Add((New-Label ('On the next page you choose ONE folder; everything (the app, its data and every program) goes inside it. Windows will ask for permission (administrator) once, when the installation starts. Please keep your PC awake and connected to the internet while it installs.') 24 300 670 60))
   $p0.Controls.Add((New-Label 'Click Next to continue.' 24 364 400 20))
 
   # ---- page 1: ONE folder for everything
@@ -354,9 +414,14 @@ function Show-Wizard {
   $p3.Controls.Add((New-Label 'Where should Fathom''s shortcuts go?' 24 14 500 20)); $p3.Controls[$p3.Controls.Count - 1].Font = $fontBold
   $ui.CbDesk = New-Check 'A Fathom icon on the Desktop' 38 48 400 $true
   $ui.CbStart = New-Check 'A Fathom entry in the Start menu' 38 76 400 $true
-  $p3.Controls.AddRange(@($ui.CbDesk, $ui.CbStart))
-  $p3.Controls.Add((New-Label ('Fathom does not add itself to Windows'' Settings > Apps list. To remove it later, open this setup window again and use Problems and Fixes > Remove Fathom: it asks before each part and never touches your own files.') 24 130 670 50))
-  $p3.Controls.Add((New-Label ('Click Next to see a summary of your choices. Nothing is installed until you click Install.') 24 196 670 40))
+  $ui.CbSendTo = New-Check 'Add Fathom to the right-click menu: right-click any file > Send to > Fathom' 38 104 640 $true
+  $ui.CbServe = New-Check 'Add a "Fathom Server" shortcut: use Fathom from your phone, tablet or another PC (it shows a private link)' 38 132 650 $false
+  $ui.CbServeAuto = New-Check 'Start the server by itself when Windows starts' 62 158 600 $false
+  $ui.CbServeAuto.Enabled = $false
+  $ui.CbServe.Add_CheckedChanged({ $ui.CbServeAuto.Enabled = [bool]$ui.CbServe.Checked; if (-not $ui.CbServe.Checked) { $ui.CbServeAuto.Checked = $false } })
+  $p3.Controls.AddRange(@($ui.CbDesk, $ui.CbStart, $ui.CbSendTo, $ui.CbServe, $ui.CbServeAuto))
+  $p3.Controls.Add((New-Label ('Fathom does not add itself to Windows'' Settings > Apps list. To remove it later, open this setup window again and use Problems and Fixes > Remove Fathom: it asks before each part and never touches your own files.') 24 196 670 50))
+  $p3.Controls.Add((New-Label ('Click Next to see a summary of your choices. Nothing is installed until you click Install.') 24 262 670 40))
 
   # ---- page 4: summary
   $p4 = New-Page
@@ -388,7 +453,7 @@ function Show-Wizard {
   $pages = @($p0, $p1, $p2, $p3, $p4, $p5, $p6)
   foreach ($p in $pages) { $content.Controls.Add($p) }
   $titles = @(
-    @('Welcome to Fathom ' + $Version, 'This wizard installs Fathom and the things it works with, where you choose.'),
+    @(('Welcome to Fathom ' + $Version), 'This wizard installs Fathom and the things it works with, where you choose.'),
     @('Where should Fathom go?', 'Pick ONE folder. Everything is kept inside it, on the same drive.'),
     @('What to install', 'Tick what you want. All of it is downloaded now, so nothing downloads later.'),
     @('Shortcuts', 'How you will open Fathom.'),
@@ -426,6 +491,9 @@ function Show-Wizard {
     $plan.Base = Join-Path $plan.Root 'Programs'
     $plan.Desk = [bool]$ui.CbDesk.Checked
     $plan.Start = [bool]$ui.CbStart.Checked
+    $plan.SendTo = [bool]$ui.CbSendTo.Checked
+    $plan.Serve = [bool]$ui.CbServe.Checked
+    $plan.ServeAuto = [bool]$ui.CbServeAuto.Checked
     $on = @{}; $dirs = [ordered]@{}
     foreach ($pt in $Parts) {
       $r = $ui.Row[$pt.Key]
@@ -477,8 +545,8 @@ function Show-Wizard {
     $plan = & $getPlan
     $needs = & $getNeeds $plan
     $nt = & $needsText $plan $needs
-    $col = [System.Drawing.Color]::DarkGreen
-    if ($nt.Short) { $col = [System.Drawing.Color]::Firebrick }
+    $col = $st.OkCol
+    if ($nt.Short) { $col = $st.BadCol }
     $prev = $st.PrevMode; $st.PrevMode = $plan.Mode
     if ($plan.Mode -eq 'each' -and $prev -ne 'each') { foreach ($pt in $Parts) { $ui.Row[$pt.Key].Box.Text = (Join-Path $plan.Base $pt.Folder) } }
     $ui.Space1.Text = $nt.Text; $ui.Space1.ForeColor = $col
@@ -568,6 +636,8 @@ function Show-Wizard {
     $sc = @(); if ($plan.Desk) { $sc += 'Desktop icon' }; if ($plan.Start) { $sc += 'Start menu entry' }
     if ($sc.Count -eq 0) { $sc = @('none') }
     $t += 'Shortcuts:    ' + ($sc -join ', ')
+    $t += 'Server mode shortcut: ' + $(if ($plan.Serve) { $(if ($plan.ServeAuto) { 'yes, starts with Windows' } else { 'yes' }) } else { 'no' })
+    $t += 'Right-click menu (Send to > Fathom): ' + $(if ($plan.SendTo) { 'yes' } else { 'no' })
     $t += ''
     $needs = & $getNeeds $plan
     $nt = & $needsText $plan $needs
@@ -660,6 +730,42 @@ function Show-Wizard {
     $ui.Timer.Stop()
     $ui.Bar.Style = 'Continuous'
     if ($ok) {
+      try {
+        if ($st.Plan.SendTo) {
+          $pyw = Join-Path $DataHome 'venv\Scripts\pythonw.exe'
+          $launch = Join-Path $st.Plan.App 'launch.py'
+          if ((Test-Path -LiteralPath $pyw) -and (Test-Path -LiteralPath $launch)) {
+            $ws = New-Object -ComObject WScript.Shell
+            $lnk = $ws.CreateShortcut((Join-Path ([Environment]::GetFolderPath('SendTo')) 'Fathom.lnk'))
+            $lnk.TargetPath = $pyw; $lnk.Arguments = '"' + $launch + '"'; $lnk.WorkingDirectory = $st.Plan.App
+            $ico = Join-Path $st.Plan.App 'assets\fathom.ico'; if (Test-Path -LiteralPath $ico) { $lnk.IconLocation = $ico }
+            $lnk.Save()
+          }
+        }
+      } catch {}
+      try {
+        if ($st.Plan.Serve) {
+          $bat = Join-Path $st.Plan.App 'Fathom.bat'
+          $ws2 = New-Object -ComObject WScript.Shell
+          $ico2 = Join-Path $st.Plan.App 'assets\fathom.ico'
+          $places = @()
+          if ($st.Plan.Desk) { $places += [Environment]::GetFolderPath('Desktop') }
+          if ($st.Plan.Start) { $places += [Environment]::GetFolderPath('Programs') }
+          if ($places.Count -eq 0) { $places += [Environment]::GetFolderPath('Desktop') }
+          foreach ($pl in $places) {
+            $l2 = $ws2.CreateShortcut((Join-Path $pl 'Fathom Server.lnk'))
+            $l2.TargetPath = $env:ComSpec; $l2.Arguments = '/k ""' + $bat + '" serve"'; $l2.WorkingDirectory = $st.Plan.App
+            if (Test-Path -LiteralPath $ico2) { $l2.IconLocation = $ico2 }
+            $l2.Save()
+          }
+          if ($st.Plan.ServeAuto) {
+            $l3 = $ws2.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Startup')) 'Fathom Server.lnk'))
+            $l3.TargetPath = $env:ComSpec; $l3.Arguments = '/c ""' + $bat + '" serve"'; $l3.WorkingDirectory = $st.Plan.App; $l3.WindowStyle = 7
+            if (Test-Path -LiteralPath $ico2) { $l3.IconLocation = $ico2 }
+            $l3.Save()
+          }
+        }
+      } catch {}
       $ui.Bar.Value = 100
       & $setPage 6
       $ui.Title.Text = 'Fathom is installed'
@@ -787,6 +893,19 @@ function Show-Wizard {
   $ui.Fixes.Add_Click({ try { Show-Fixes } catch { [System.Windows.Forms.MessageBox]::Show('The fixes window could not open: ' + $_.Exception.Message, 'Fathom Setup') | Out-Null } })
   $ui.Details.Add_Click({ try { Start-Process -FilePath 'explorer.exe' -ArgumentList ('"' + $DataHome + '"') } catch {} })
 
+  $st.ThemeName = Get-ThemeName
+  $applyTheme = {
+    $t = Get-Theme $st.ThemeName
+    $st.OkCol = $t.Ok; $st.BadCol = $t.Bad
+    Apply-Theme $f $t
+    $ui.ThemeBtn.Text = $(if ($t.Name -eq 'dark') { 'Light' } else { 'Dark' })
+    $ui.Bar.BackColor = $t.Accent
+    if ($f.IsHandleCreated) { Set-DarkTitleBar $f ($t.Name -eq 'dark') }
+    try { & $ui.Refresh } catch {}
+  }
+  $ui.ThemeBtn.Add_Click({ if ($st.ThemeName -eq 'dark') { $st.ThemeName = 'light' } else { $st.ThemeName = 'dark' }; Save-ThemeName $st.ThemeName; & $applyTheme })
+  $f.Add_Shown({ Set-DarkTitleBar $f ($st.ThemeName -eq 'dark') })
+  & $applyTheme
   if ($env:FATHOM_WIZARD_TEST) { $global:WizUi = $ui; $global:WizSt = $st; $global:WizFns = @{ GetPlan = $getPlan; Validate = $validate; Summary = $buildSummary } }
   & $setPage 0
   [void]$f.ShowDialog()
