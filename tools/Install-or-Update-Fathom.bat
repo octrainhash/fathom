@@ -22,6 +22,8 @@ if not defined FATHOM_IOU_ORIG (
 )
 set "ORIG=%FATHOM_IOU_ORIG%"
 if not defined ORIG set "ORIG=%~dp0"
+rem inside the Fathom folder this file sits in tools\: the Fathom folder is one level up
+if not exist "%ORIG%app\main.py" if exist "%ORIG%..\app\main.py" for %%I in ("%ORIG%..") do set "ORIG=%%~fI\"
 
 set "SITE=https://fathomfile.pages.dev/downloads"
 set "MODE=full"

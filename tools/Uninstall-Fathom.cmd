@@ -1,15 +1,15 @@
 @echo off
 setlocal EnableExtensions
 title Uninstall Fathom
-rem Removes Fathom (asks before each part). Keep this file next to Fathom.bat. Needs administrator rights.
+rem Removes Fathom (asks before each part). Lives in the tools folder of Fathom. Needs administrator rights.
 fltmc >nul 2>&1
 if not errorlevel 1 goto :admin_ok
 echo Windows will ask for administrator permission. Please click Yes.
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
 exit /b 0
 :admin_ok
-if not exist "%~dp0tools\uninstall.ps1" goto :missing
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\uninstall.ps1" -AppDir "%~dp0."
+if not exist "%~dp0uninstall.ps1" goto :missing
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0uninstall.ps1" -AppDir "%~dp0.."
 echo.
 pause
 exit /b 0

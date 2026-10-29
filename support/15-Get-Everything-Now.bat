@@ -4,7 +4,7 @@ rem  handwriting, Ollama model), so nothing has to download later. Put it in you
 rem  Safe to run again any time; it only fetches what is missing. Log: %LOCALAPPDATA%\Fathom\setup.log
 setlocal
 title Fathom - update and download everything
-cd /d "%~dp0"
+cd /d "%~dp0.."
 set "PY=%LOCALAPPDATA%\Fathom\venv\Scripts\python.exe"
 if not exist "%PY%" (
   echo Fathom has not been installed on this PC yet. Run Fathom.bat once first, then run this again.

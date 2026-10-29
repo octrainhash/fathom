@@ -81,7 +81,7 @@ def _open(url: str, headers: dict, body: dict, timeout: int, provider: str, canc
             if is_ollama and e.code == 404 and attempt == 0 and _ollama_self_heal():
                 continue
             if is_ollama and e.code == 404:
-                raise LLMError("Ollama cannot open the model. Close this and double-click Fix-Ollama.cmd in the Fathom folder (it repairs Ollama), "
+                raise LLMError("Ollama cannot open the model. Close this and open Fathom-Setup.vbs and choose Problems and Fixes > Ollama (it repairs Ollama), "
                                "or choose an online AI in Assistant > Settings. (" + _friendly(e.code, text, provider) + ")")
             raise LLMError(_friendly(e.code, text, provider))
         except (urllib.error.URLError, socket.timeout, ConnectionError) as e:

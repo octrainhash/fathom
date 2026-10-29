@@ -32,5 +32,5 @@ foreach ($p in @((Join-Path ([Environment]::GetFolderPath('Desktop')) 'Fathom.ln
   } else { L ('  ' + $p + '  : none') }
 }
 L ''
-L 'Nothing was changed. To remove Fathom completely, use Uninstall-Fathom.cmd in the Fathom folder.'
+L 'Nothing was changed. To remove Fathom completely, use Fathom-Setup.vbs > Problems and Fixes > Remove Fathom.'
 Finish-Report

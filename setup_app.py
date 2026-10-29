@@ -656,7 +656,7 @@ def _ollama_make_ready(exe: str, model: str) -> None:
             updated = True
             exe = _ollama_exe() or exe
             if not _ollama_start(exe, env, 90):
-                say("  Ollama did not start after the update. Open the Ollama app once, then run Fix-Ollama.cmd.")
+                say("  Ollama did not start after the update. Open the Ollama app once, then open Fathom-Setup.vbs > Problems and Fixes > Ollama.")
                 return
         if _fix_links():
             say("  (Windows could not follow Ollama's link files; they were replaced by real copies.)")
@@ -709,7 +709,7 @@ def _ollama_make_ready(exe: str, model: str) -> None:
                 return
         if _ollama_has(probe):
             _use_model(probe)
-            say(f"  Only the small text model {probe} works here. Fathom will use it (it answers questions but cannot look at pictures). Run Fix-Ollama.cmd later to try again.")
+            say(f"  Only the small text model {probe} works here. Fathom will use it (it answers questions but cannot look at pictures). Open Fathom-Setup.vbs > Problems and Fixes > Ollama.cmd later to try again.")
             _ollama_report("alternates failed; using the probe model")
             return
         rp = _ollama_report("no model could be listed")

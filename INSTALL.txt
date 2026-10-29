@@ -180,10 +180,10 @@ only once and can continue if the connection drops (run Fathom.bat repair).
 * The Fathom window does not open on a slimmed-down Windows: if Windows has no web view
   component, Fathom opens in your normal browser instead.
 * The assistant says the model was not found, or ollama list shows nothing: double-click
-  Fix-Ollama.cmd in the Fathom folder. The usual cause is that Ollama's model folder
+  Fathom-Setup.vbs > Problems and Fixes > Ollama. The usual cause is that Ollama's model folder
   sits behind a folder link (a Windows "junction"): Ollama 0.40 downloads the model but
   cannot read it through such a link, so it says "not found" or "bad manifest". Fathom's
-  setup and Fix-Ollama.cmd detect this and point Ollama straight at the real folder with
+  setup and the Ollama fix detect this and point Ollama straight at the real folder with
   the OLLAMA_MODELS setting, which is the way Ollama documents it. No model or file of
   yours is deleted: only the small link itself is removed, and the models stay where
   they are. If Ollama still hides a model, setup tests with a tiny model, switches to
@@ -245,7 +245,7 @@ only once and can continue if the connection drops (run Fathom.bat repair).
    never touched.
 4. Python 3.12 is left in place because other programs may use it. Remove it in Settings
    > Apps if you want it gone.
-5. Fathom does not add itself to Settings > Apps, so use Uninstall-Fathom.cmd (or delete
+5. Fathom does not add itself to Settings > Apps, so use Fathom-Setup.vbs > Problems and Fixes > Remove Fathom (or delete
    the folders by hand, plus the Desktop and Start-menu shortcuts). On Mac and Linux
    delete the Fathom folder and the data folder (~/.fathom unless you chose another).
 

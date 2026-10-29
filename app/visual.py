@@ -123,7 +123,7 @@ def _resolve(path: str) -> tuple[str, str]:
             last = e
     msg = str(last or "")
     if "LibreOffice" in msg or "office" in msg.lower():
-        raise UserError("This file needs LibreOffice to be shown as pages. The full Fathom install adds it (run Install-or-Update-Fathom.bat). "
+        raise UserError("This file needs LibreOffice to be shown as pages. The full Fathom install adds it (run Fathom-Setup.vbs and tick LibreOffice). "
                         "Meanwhile use Editor to change the text itself.")
     raise UserError(f"Fathom cannot show a {formats.label(fmt)} as pages or a picture, so there is nothing to drag around. ({msg[:140]})")
 

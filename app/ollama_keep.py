@@ -22,7 +22,7 @@ log = logging.getLogger("fathom")
 IS_WIN = sys.platform.startswith("win")
 _lock = threading.Lock()
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
-RUN_NAME = "Ollama (Fathom)"          # the value an earlier Fathom version added; drop_autostart() and Uninstall-Fathom.cmd remove it
+RUN_NAME = "Ollama (Fathom)"          # the value an earlier Fathom version added; drop_autostart() and the uninstaller remove it
 TRAY_ARGS = ["--hide"]                # Ollama's own option: start without opening its window, tray icon only
 OLLAMA_SETTINGS = ("OLLAMA_MODELS", "OLLAMA_CONTEXT_LENGTH", "OLLAMA_KEEP_ALIVE", "OLLAMA_HOST")
 

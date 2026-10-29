@@ -15,7 +15,7 @@ rem ============================================================================
 set "AUTO=%~1"
 set "DEST=%FATHOM_DEST%"
 if defined DEST goto :dest_known
-echo Where should Fathom (its app, data and programs) be kept? Type a folder, for example  D:\Softwares
+echo Where should Fathom (its app, data and programs) be kept? Type a folder, for example  E:\Fathom
 set /p "DEST=Folder: "
 if not defined DEST exit /b 1
 :dest_known
@@ -28,7 +28,7 @@ rem the installer wizard can name each folder exactly (install-choice.txt: APPDI
 if defined FATHOM_APPDIR set "NEWAPP=%FATHOM_APPDIR%"
 if defined FATHOM_DATADIR set "NEWDATA=%FATHOM_DATADIR%"
 if defined FATHOM_PROGBASE set "PROGBASE=%FATHOM_PROGBASE%"
-set "SRC=%~dp0"
+for %%I in ("%~dp0..") do set "SRC=%%~fI"
 if "%SRC:~-1%"=="\" set "SRC=%SRC:~0,-1%"
 set "OLDDATA=%LOCALAPPDATA%\Fathom"
 set "LOG=%TEMP%\Fathom-move.log"

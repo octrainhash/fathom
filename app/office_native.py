@@ -561,7 +561,7 @@ def soffice_convert(src: Path, fmt: str, outdir: Path) -> Path:
                 exe = c
                 break
     if not exe:
-        raise UserError("Saving this kind of file in its own format needs LibreOffice. The full Fathom install adds it (run Install-or-Update-Fathom.bat).")
+        raise UserError("Saving this kind of file in its own format needs LibreOffice. The full Fathom install adds it (run Fathom-Setup.vbs and tick LibreOffice).")
     prof = Path(tempfile.mkdtemp(prefix="fathom_lo_"))
     try:
         r = subprocess.run([exe, f"-env:UserInstallation={prof.as_uri()}", "--headless", "--convert-to", fmt, "--outdir", str(outdir), str(src)],
