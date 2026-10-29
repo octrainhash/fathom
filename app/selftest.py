@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """python -m app.selftest  -> checks every part of Fathom on this PC and prints PASS/FAIL for each."""
 from __future__ import annotations
 
@@ -204,6 +205,35 @@ def main() -> int:
     def _():
         from app.ai import tools
         assert tools._blocked("format d: /q") and not tools._blocked("dir")
+        return "ok"
+
+    @check("Toolbox: text helpers")
+    def _():
+        from app import toolbox_quick as q
+        assert '"a": 1' in q.run("json", '{"a":1,}', {"lenient": True})["result"]
+        assert q.run("base64", "hi", {})["result"] == "aGk="
+        assert q.run("hash", "abc", {"algos": ["sha256"]})["result"].startswith("ba7816bf")
+        assert "<h1" in q.run("markdown", "# Hi", {})["result"]
+        return "ok"
+
+    @check("Toolbox: barcodes")
+    def _():
+        from app import toolbox
+        assert all(sum(map(int, p)) == 11 for p in toolbox.C128[:-1])
+        w, shown = toolbox.encode("ean13", "590123412345")
+        assert shown == "5901234123457" and sum(w) == 95
+        img, svg = toolbox.render_barcode("code128", "Fathom", {})
+        assert img.width > 100 and svg.startswith("<svg")
+        return "ok"
+
+    @check("Toolbox: subtitles")
+    def _():
+        from app import toolbox
+        p = tmp / "t.srt"
+        p.write_text("1\n00:00:01,000 --> 00:00:02,000\n<i>Hi</i>\n", encoding="utf-8")
+        cues, _enc = toolbox.read_subs(p)
+        out, _n = toolbox.fix_subs(cues, {"shift": 1})
+        assert out[0][2] == "Hi" and abs(out[0][0] - 2.0) < 1e-6
         return "ok"
 
     width = max(len(n) for n, _, _ in RESULTS)

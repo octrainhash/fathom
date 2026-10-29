@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Pictures: every image format Pillow can read or write (plus HEIC, AVIF and camera RAW when their packages are present),
 and reading the text out of a picture (OCR)."""
 from __future__ import annotations
@@ -37,7 +38,8 @@ except Exception:
 # format id -> Pillow format name used to save it
 SAVE_NAME = {"png": "PNG", "jpg": "JPEG", "gif": "GIF", "bmp": "BMP", "tif": "TIFF", "webp": "WEBP", "ico": "ICO", "icns": "ICNS",
              "tga": "TGA", "ppm": "PPM", "pgm": "PPM", "pbm": "PPM", "pcx": "PCX", "sgi": "SGI", "dds": "DDS", "jp2": "JPEG2000",
-             "avif": "AVIF", "heic": "HEIF", "eps": "EPS", "pdf": "PDF", "xbm": "XBM", "apng": "PNG"}
+             "avif": "AVIF", "heic": "HEIF", "eps": "EPS", "pdf": "PDF", "xbm": "XBM", "apng": "PNG",
+             "qoi": "QOI", "im": "IM"}
 ANIMATED_OUT = {"gif", "webp", "apng", "tif", "pdf"}
 
 

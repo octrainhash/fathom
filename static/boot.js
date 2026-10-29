@@ -3,7 +3,7 @@
   "use strict";
   const F = window.Fathom, $ = F.$, h = F.h;
   F.addGroup("home", "Home"); F.addGroup("ai", "Assistant"); F.addGroup("search", "Search"); F.addGroup("convert", "Convert"); F.addGroup("size", "Size"); F.addGroup("edit", "Edit");
-  F.addGroup("protect", "Protect"); F.addGroup("tidy", "Tidy"); F.addGroup("lab", "Lab"); F.addGroup("sync", "Sync"); F.addGroup("torrent", "Torrent"); F.addGroup("drives", "Drives"); F.addGroup("mine", "My tools");
+  F.addGroup("protect", "Protect"); F.addGroup("tidy", "Tidy"); F.addGroup("lab", "Lab"); F.addGroup("sync", "Sync"); F.addGroup("torrent", "Torrent"); F.addGroup("drives", "Drives"); F.addGroup("toolbox", "Toolbox"); F.addGroup("mine", "My tools");
   // the most-wanted editing tools come first in the Edit group
   { const first = ["editor", "replace", "stamp", "sign"].map((id) => F.tools.find((t) => t.id === id)).filter(Boolean); const at = F.tools.findIndex((t) => t.id === "merge"); if (first.length && at >= 0) { F.tools = F.tools.filter((t) => !first.includes(t)); F.tools.splice(F.tools.findIndex((t) => t.id === "merge"), 0, ...first); } }
   F.buildNav();

@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Video, audio and subtitles through ffmpeg (bundled with Fathom), plus speech-to-text."""
 from __future__ import annotations
 
@@ -12,8 +13,8 @@ from app.convert.formats import FORMATS
 from app.runtime import no_window_flags
 
 VIDEO_IN = {"mp4", "mkv", "webm", "avi", "mov", "flv", "wmv", "mpg", "ts", "m2ts", "vob", "ogv", "3gp", "3g2", "m4v", "asf",
-            "divx", "f4v", "rm", "rmvb", "mxf", "swf", "gif", "apng"}
-AUDIO_IN = {"mp3", "wav", "flac", "ogg", "opus", "m4a", "aac", "wma", "aiff", "ac3", "amr", "mka", "mp2", "au", "caf", "ape", "wv", "tta", "dts", "ra"}
+            "divx", "f4v", "rm", "rmvb", "mxf", "swf", "gif", "apng", "ogm", "wtv", "dv", "nut", "ivf", "y4m", "h264", "hevc", "amv", "bik", "smk"}
+AUDIO_IN = {"mp3", "wav", "flac", "ogg", "opus", "m4a", "aac", "wma", "aiff", "ac3", "amr", "mka", "mp2", "au", "caf", "ape", "wv", "tta", "dts", "ra", "mpc", "w64", "voc", "mp1", "eac3", "thd", "dsf", "dff", "gsm", "ircam", "tak", "oma"}
 FRAME_PICTURES = {"png", "jpg", "tif", "webp", "bmp", "avif", "jp2", "tga", "ppm"}
 SUB_FMT = {"srt": "srt", "vtt": "webvtt", "ass": "ass", "ssa": "ssa"}
 
@@ -21,10 +22,12 @@ SUB_FMT = {"srt": "srt", "vtt": "webvtt", "ass": "ass", "ssa": "ssa"}
 VIDEO_OUT = {"mp4": ["libx264", "aac"], "m4v": ["libx264", "aac"], "mov": ["libx264", "aac"], "mkv": ["libx264", "aac"],
              "3gp": ["libx264", "aac"], "ts": ["libx264", "aac"], "flv": ["libx264", "aac"], "webm": ["libvpx-vp9", "libopus"],
              "avi": ["mpeg4", "libmp3lame"], "wmv": ["wmv2", "wmav2"], "mpg": ["mpeg2video", "mp2"], "ogv": ["libtheora", "libvorbis"],
-             "gif": []}
+             "gif": [], "3g2": ["libx264", "aac"], "f4v": ["libx264", "aac"], "nut": ["libx264", "aac"], "asf": ["wmv2", "wmav2"],
+             "swf": ["flv", "libmp3lame"], "ivf": ["libvpx-vp9"], "y4m": [], "h264": ["libx264"], "hevc": ["libx265"]}
 AUDIO_OUT = {"mp3": ["libmp3lame"], "wav": ["pcm_s16le"], "flac": ["flac"], "ogg": ["libvorbis"], "opus": ["libopus"], "m4a": ["aac"],
              "aac": ["aac"], "wma": ["wmav2"], "aiff": ["pcm_s16be"], "ac3": ["ac3"], "mka": ["aac"], "mp2": ["mp2"],
-             "au": ["pcm_s16be"], "caf": ["pcm_s16le"], "amr": ["libopencore_amrnb"]}
+             "au": ["pcm_s16be"], "caf": ["pcm_s16le"], "amr": ["libopencore_amrnb"],
+             "w64": ["pcm_s16le"], "voc": ["pcm_s16le"], "eac3": ["eac3"], "gsm": ["libgsm"], "ircam": ["pcm_s16le"], "wv": ["wavpack"], "tta": ["tta"]}
 
 
 @lru_cache(maxsize=8)
@@ -99,7 +102,7 @@ def _qv(o: Opts, high: int, bal: int, small: int) -> int:
     return {"high": high, "balanced": bal, "small": small}.get(o.video_quality, bal)
 
 
-X264_TARGETS = ("mp4", "m4v", "mov", "mkv", "3gp", "ts", "flv")
+X264_TARGETS = ("mp4", "m4v", "mov", "mkv", "3gp", "3g2", "f4v", "nut", "ts", "flv")
 
 
 def uses_gpu(t: str, o: Opts) -> bool:
@@ -123,6 +126,7 @@ def video_args(t: str, o: Opts, has_audio: bool, dur: float = 0.0, copy_video: b
     k = f"{max(32, int(o.audio_kbps))}k"
     preset = o.video_preset if o.video_preset in adjust.X264_PRESETS else "medium"
     venc: list[str]
+    audio: list[str] = []
     if t in X264_TARGETS:
         if uses_gpu(t, o) and not cpu_only:
             venc = ["-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", str(_crf(o, 23)), "-b:v", "0", "-pix_fmt", "yuv420p"]
@@ -144,6 +148,24 @@ def video_args(t: str, o: Opts, has_audio: bool, dur: float = 0.0, copy_video: b
     elif t == "ogv":
         venc = ["-c:v", "libtheora", "-q:v", str(_qv(o, 9, 7, 4)), "-pix_fmt", "yuv420p"]
         audio = ["-c:a", "libvorbis", "-b:a", k]
+    elif t == "asf":
+        venc = ["-c:v", "wmv2", "-q:v", str(_qv(o, 3, 5, 9)), "-pix_fmt", "yuv420p"]
+        audio = ["-c:a", "wmav2", "-b:a", k]
+    elif t == "swf":
+        venc = ["-c:v", "flv", "-q:v", str(_qv(o, 3, 5, 9)), "-pix_fmt", "yuv420p"]
+        audio = ["-c:a", "libmp3lame", "-b:a", k, "-ar", "44100"]
+    elif t == "ivf":
+        venc = ["-c:v", "libvpx-vp9", "-crf", str(_crf(o, 32)), "-b:v", "0", "-row-mt", "1", "-deadline", "good", "-cpu-used", "4", "-pix_fmt", "yuv420p"]
+        audio = []
+    elif t == "y4m":
+        venc = ["-c:v", "rawvideo", "-pix_fmt", "yuv420p"]
+        audio = []
+    elif t == "h264":
+        venc = ["-c:v", "libx264", "-preset", preset, "-crf", str(_crf(o, 23)), "-pix_fmt", "yuv420p", "-f", "h264"]
+        audio = []
+    elif t == "hevc":
+        venc = ["-c:v", "libx265", "-preset", preset, "-crf", str(_crf(o, 28)), "-pix_fmt", "yuv420p", "-f", "hevc"]
+        audio = []
     else:
         raise ConvertError(f"Cannot make {t} video.")
     if copy_video:
@@ -153,7 +175,7 @@ def video_args(t: str, o: Opts, has_audio: bool, dur: float = 0.0, copy_video: b
     args: list[str] = list(venc)
     if vf:
         args = ["-vf", ",".join(vf)] + args
-    if o.keep_audio and has_audio:
+    if o.keep_audio and has_audio and audio:
         args += audio + adjust.audio_filter_args(o, dur) + adjust.audio_out_args(o, "")
     else:
         args += ["-an"]
@@ -169,6 +191,8 @@ def audio_args(t: str, o: Opts) -> list[str]:
         "aiff": ["-c:a", "pcm_s16be"], "ac3": ["-c:a", "ac3", "-b:a", f"{min(640, int(o.audio_kbps))}k"], "mka": ["-c:a", "aac", "-b:a", k],
         "mp2": ["-c:a", "mp2", "-b:a", k], "au": ["-c:a", "pcm_s16be", "-f", "au"], "caf": ["-c:a", "pcm_s16le"],
         "amr": ["-c:a", "libopencore_amrnb", "-ar", "8000", "-ac", "1", "-b:a", "12.2k"],
+        "w64": ["-c:a", "pcm_s16le"], "voc": ["-c:a", "pcm_s16le"], "eac3": ["-c:a", "eac3", "-b:a", f"{min(640, int(o.audio_kbps))}k"],
+        "gsm": ["-c:a", "libgsm", "-ar", "8000", "-ac", "1"], "ircam": ["-c:a", "pcm_s16le"], "wv": ["-c:a", "wavpack"], "tta": ["-c:a", "tta"],
     }
     return table[t]
 

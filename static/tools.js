@@ -43,6 +43,7 @@
     });
   }
   const base = (v, extra = {}) => ({ paths: F.state.sources, recursive: true, output: F.outputBody(), ...extra });
+  F.jobTool = jobTool; F.baseBody = base;
   const PDF_NOTE = "Works on PDF files. ";
 
   // =========================================================== EDIT

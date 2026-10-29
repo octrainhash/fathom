@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Archives (zip, 7z, tar, gz, rar and more), "any file -> compressed / text-encoded", fonts and 3D models."""
 from __future__ import annotations
 
@@ -47,7 +48,7 @@ def sevenzip_exe() -> str | None:
 
 
 NATIVE_IN = {"zip", "jar", "tar", "tar.gz", "tar.bz2", "tar.xz", "gz", "bz2", "xz", "cbz"}
-EXTERNAL_IN = {"rar", "cab", "iso", "cpio", "lzh", "deb", "rpm"}
+EXTERNAL_IN = {"rar", "cab", "iso", "cpio", "lzh", "deb", "rpm", "arj", "z", "lzma", "zst", "wim", "dmg", "msi", "xar"}
 PACK_OUT = {"zip", "tar", "tar.gz", "tar.bz2", "tar.xz", "gz", "bz2", "xz", "7z"}
 
 

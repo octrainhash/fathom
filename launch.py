@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Starts Fathom: the local engine + the desktop window. (Fathom.bat and the Desktop shortcut run this.)"""
 from __future__ import annotations
 
@@ -107,9 +108,25 @@ def serve_token() -> str:
 
 
 def free_port() -> int:
+    """Use the same port as last time when it is free: the browser part of the app keeps its saved settings per port, so a new random port every start made it forget them (the welcome tour came back every time)."""
+    from app.paths import data_root
+    saved = data_root() / "port.txt"
+    try:
+        want = int(saved.read_text().strip())
+        if 1024 <= want <= 65535:
+            with socket.socket() as s:
+                s.bind(("127.0.0.1", want))
+                return want
+    except (OSError, ValueError):
+        pass
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
+        port = s.getsockname()[1]
+    try:
+        saved.write_text(str(port))
+    except OSError:
+        pass
+    return port
 
 
 def server_python() -> str:

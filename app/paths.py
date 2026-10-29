@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 from __future__ import annotations
 
 import os
@@ -5,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 APP_NAME = "Fathom"
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 BRAND = "Fathom"
 
 

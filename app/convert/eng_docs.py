@@ -364,17 +364,19 @@ class PandocEngine(Engine):
 
 # ---------------------------------------------------------------- LibreOffice (Office formats and many old ones)
 LO_LOCK = threading.Lock()
-LO_WRITER = {"docx", "doc", "dotx", "dot", "odt", "ott", "rtf", "wpd", "wps", "sxw", "abw", "pages"}
-LO_CALC = {"xlsx", "xls", "xlsm", "xltx", "ods", "sxc", "numbers", "dbf", "dif", "slk"}
-LO_IMPRESS = {"pptx", "ppt", "ppsx", "pps", "potx", "odp", "sxi", "key"}
-LO_DRAW = {"vsdx", "vsd", "pub", "cdr", "odg"}
+LO_WRITER = {"docx", "doc", "dotx", "dot", "odt", "ott", "rtf", "wpd", "wps", "sxw", "abw", "pages", "sdw", "stw", "hwp", "lwp", "t602", "mw", "zabw", "uot"}
+LO_CALC = {"xlsx", "xls", "xlsm", "xltx", "ods", "sxc", "numbers", "dbf", "dif", "slk", "sdc", "stc", "lotus123", "wk1", "wks", "qpw", "wb2", "xlsb", "uos"}
+LO_IMPRESS = {"pptx", "ppt", "ppsx", "pps", "potx", "odp", "sxi", "key", "sdd", "sti", "uop", "pot"}
+LO_DRAW = {"vsdx", "vsd", "pub", "cdr", "odg", "vdx", "wpg", "cmx", "pmd", "qxp", "zmf", "dxf", "cgm", "svm", "fh"}
 LO_WRITE_FROM = {
     "writer": {"pdf": "pdf", "docx": "docx", "doc": "doc", "odt": "odt", "rtf": "rtf", "txt": "txt:Text (encoded):UTF8", "html": "html",
-               "epub": "epub", "png": "png"},
+               "epub": "epub", "png": "png", "jpg": "jpg", "ott": "ott", "dotx": "dotx"},
     "calc": {"pdf": "pdf", "xlsx": "xlsx", "xls": "xls", "ods": "ods", "csv": "csv:Text - txt - csv (StarCalc):44,34,76,1,,0,false,true,false,false,false,-1",
-             "html": "html", "png": "png"},
-    "impress": {"pdf": "pdf", "pptx": "pptx", "ppt": "ppt", "odp": "odp", "png": "png", "jpg": "jpg", "html": "html"},
-    "draw": {"pdf": "pdf", "png": "png", "jpg": "jpg", "svg": "svg", "odg": "odg"},
+             "html": "html", "png": "png", "jpg": "jpg", "xltx": "xltx", "dif": "dif", "dbf": "dbf", "slk": "slk",
+             "tsv": "csv:Text - txt - csv (StarCalc):9,34,76,1,,0,false,true,false,false,false,-1"},
+    "impress": {"pdf": "pdf", "pptx": "pptx", "ppt": "ppt", "odp": "odp", "png": "png", "jpg": "jpg", "html": "html", "gif": "gif", "bmp": "bmp", "tif": "tif", "svg": "svg",
+                "potx": "potx", "ppsx": "ppsx", "pps": "pps"},
+    "draw": {"pdf": "pdf", "png": "png", "jpg": "jpg", "svg": "svg", "odg": "odg", "gif": "gif", "bmp": "bmp", "tif": "tif", "emf": "emf", "wmf": "wmf", "eps": "eps"},
 }
 LO_FAMILY_IN = {"writer": LO_WRITER, "calc": LO_CALC, "impress": LO_IMPRESS, "draw": LO_DRAW}
 
@@ -496,8 +498,9 @@ class CalibreEngine(Engine):
     cost = 1.2
     heavy = True
     needs = "Calibre"
-    READ = {"epub", "mobi", "azw3", "azw", "fb2", "lit", "lrf", "pdb", "djvu", "cbz", "cbr", "htmlz", "txtz", "docx", "rtf", "txt", "html", "md", "odt", "pdf"}
-    WRITE = {"epub", "mobi", "azw3", "fb2", "pdf", "docx", "txt", "htmlz", "txtz", "rtf", "lit", "lrf", "pdb"}
+    READ = {"epub", "mobi", "azw3", "azw", "fb2", "lit", "lrf", "pdb", "djvu", "cbz", "cbr", "htmlz", "txtz", "docx", "rtf", "txt", "html", "md", "odt", "pdf",
+            "chm", "fbz", "pml", "rb", "snb", "tcr"}
+    WRITE = {"epub", "mobi", "azw3", "fb2", "pdf", "docx", "txt", "htmlz", "txtz", "rtf", "lit", "lrf", "pdb", "pml", "rb", "snb", "tcr"}
 
     def available(self) -> bool:
         return bool(calibre_exe())

@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Open any kind of file and hand back its text (with locations) and/or pictures.
 
 Nothing here renders pictures of text. That only happens for matches (see textsnap.py), so
@@ -36,12 +37,16 @@ except Exception:
 IMAGE_EXT = {
     ".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".webp", ".bmp", ".dib", ".tif", ".tiff", ".gif", ".ico",
     ".heic", ".heif", ".avif", ".jp2", ".ppm", ".pgm", ".pbm", ".tga", ".psd",
+    ".qoi", ".ras", ".sun", ".dcx", ".xpm", ".msp", ".pcd", ".blp", ".fli", ".flc", ".im", ".pcx", ".sgi", ".icns", ".dds", ".mpo", ".cur", ".apng",
 }
 VIDEO_EXT = {
     ".mp4", ".mkv", ".avi", ".mov", ".webm", ".wmv", ".flv", ".m4v", ".mpeg", ".mpg", ".3gp", ".3g2",
     ".ogv", ".mts", ".m2ts", ".vob", ".asf", ".divx", ".f4v", ".rm", ".rmvb", ".mxf",
+    ".ogm", ".wtv", ".dv", ".nut", ".ivf", ".y4m", ".h264", ".264", ".hevc", ".265", ".amv", ".bik", ".smk", ".mod", ".tod", ".vro", ".evo", ".3gpp", ".mjpg",
 }
-AUDIO_EXT = {".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wma", ".aiff", ".aif", ".amr"}
+AUDIO_EXT = {".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wma", ".aiff", ".aif", ".amr",
+             ".mp2", ".mp1", ".mka", ".ac3", ".eac3", ".au", ".snd", ".caf", ".ape", ".wv", ".tta", ".dts", ".mpc", ".w64", ".voc", ".dsf", ".dff",
+             ".gsm", ".tak", ".oma", ".m4b", ".m4r", ".weba", ".spx", ".ra", ".thd"}
 OFFICE_EXT = {
     ".docx", ".docm", ".dotx", ".pptx", ".pptm", ".potx", ".ppsx", ".xlsx", ".xlsm", ".xltx",
     ".odt", ".ods", ".odp", ".epub",
@@ -51,12 +56,22 @@ TEXT_EXT = {
     ".txt", ".md", ".csv", ".tsv", ".json", ".jsonl", ".xml", ".html", ".htm", ".xhtml", ".css", ".js", ".mjs", ".ts",
     ".tsx", ".jsx", ".py", ".rs", ".go", ".java", ".c", ".cpp", ".cc", ".h", ".hpp", ".cs", ".php", ".rb", ".sh", ".bat",
     ".cmd", ".ps1", ".sql", ".log", ".yml", ".yaml", ".toml", ".ini", ".cfg", ".conf", ".env", ".rtf", ".svg", ".tex",
-    ".srt", ".vtt", ".ass", ".ipynb", ".vcf", ".ics", ".reg", ".m3u", ".m3u8", ".pls", ".nfo", ".mht", ".mhtml", ".dxf", ".ps", ".lua", ".kt", ".swift", ".r", ".m", ".vue", ".gradle", ".properties", ".rst",
+    ".srt", ".vtt", ".ass", ".ipynb", ".vcf", ".ics", ".reg", ".m3u", ".m3u8", ".pls", ".nfo", ".mht", ".mhtml", ".dxf", ".ps", ".fb2", ".opml", ".gpx", ".kml", ".geojson", ".markdown", ".adoc", ".asciidoc", ".org", ".textile", ".bib", ".sty", ".cls", ".diff", ".patch", ".lua", ".kt", ".swift", ".r", ".m", ".vue", ".gradle", ".properties", ".rst",
 }
 # old binary Office formats, e-mail, databases and camera RAW photos (searched properly, not as raw bytes)
 LEGACY_OFFICE = {".doc": "docx", ".dot": "docx", ".wpd": "docx", ".wps": "docx", ".sxw": "docx",
                  ".xls": "xlsx", ".xlt": "xlsx", ".sxc": "xlsx", ".xlsb": "xlsx",
-                 ".ppt": "pptx", ".pps": "pptx", ".sxi": "pptx"}
+                 ".ppt": "pptx", ".pps": "pptx", ".sxi": "pptx",
+                 ".sdw": "docx", ".stw": "docx", ".hwp": "docx", ".lwp": "docx", ".602": "docx", ".mw": "docx", ".zabw": "docx", ".uot": "docx", ".abw": "docx", ".pages": "docx", ".dotm": "docx",
+                 ".sdc": "xlsx", ".stc": "xlsx", ".123": "xlsx", ".wk1": "xlsx", ".wks": "xlsx", ".wk3": "xlsx", ".qpw": "xlsx", ".wb2": "xlsx", ".uos": "xlsx", ".dbf": "xlsx",
+                 ".dif": "xlsx", ".slk": "xlsx", ".numbers": "xlsx",
+                 ".sdd": "pptx", ".sti": "pptx", ".uop": "pptx", ".pot": "pptx", ".key": "pptx"}
+try:
+    from app.convert.formats import TEXT_LIKE as _TL
+
+    TEXT_EXT |= {"." + _e for _e in _TL if _e and "." not in _e and _e not in ("ts", "sub", "s", "v", "f", "m", "r", "pro")} | {".ts", ".m", ".r"}
+except Exception:
+    pass
 EMAIL_EXT = {".eml", ".mbox", ".mbx"}
 DB_EXT = {".sqlite", ".sqlite3", ".db", ".db3", ".s3db", ".sdb", ".sqlitedb"}
 RAW_EXT = {".cr2", ".cr3", ".crw", ".nef", ".nrw", ".arw", ".srf", ".sr2", ".dng", ".orf", ".rw2", ".raf", ".pef", ".srw", ".x3f", ".3fr", ".kdc", ".dcr", ".mrw", ".erf", ".mef", ".raw"}

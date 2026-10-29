@@ -72,6 +72,12 @@ async def lifespan(_app: FastAPI):
         threading.Thread(target=_ollama_boot, daemon=True, name="fathom-ollama-warmup").start()
     except Exception:
         pass
+    try:
+        from app import automate as _auto
+        if _auto.get_rules():
+            _auto.ensure_running()
+    except Exception:
+        log.exception("watch folders did not start")
     yield
 
 
@@ -1589,6 +1595,50 @@ def ai_speak_stop():
     return {"ok": True}
 
 
+# ---------------------------------------------------------------- saved preferences (kept on disk, so they survive a new port every start)
+_PREFS_LOCK = threading.Lock()
+
+
+def _prefs_path() -> Path:
+    return data_root() / "prefs.json"
+
+
+def _prefs_read() -> dict:
+    try:
+        d = json.loads(_prefs_path().read_text(encoding="utf-8"))
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+class PrefIn(BaseModel):
+    key: str = Field(min_length=1, max_length=80)
+    value: object = None
+    remove: bool = False
+
+
+@app.get("/api/prefs", dependencies=[Depends(guard)])
+def prefs_get():
+    with _PREFS_LOCK:
+        return _prefs_read()
+
+
+@app.post("/api/prefs", dependencies=[Depends(guard)])
+def prefs_set(body: PrefIn):
+    with _PREFS_LOCK:
+        d = _prefs_read()
+        if body.remove:
+            d.pop(body.key, None)
+        else:
+            d[body.key] = body.value
+        if len(json.dumps(d)) > 2_000_000:
+            raise HTTPException(413, "Saved settings are too big.")
+        tmp = _prefs_path().with_suffix(".tmp")
+        tmp.write_text(json.dumps(d), encoding="utf-8")
+        os.replace(tmp, _prefs_path())
+    return {"ok": True}
+
+
 # ---------------------------------------------------------------- server mode: browse, upload and download from another device
 @app.get("/api/info", dependencies=[Depends(guard)])
 def app_info():
@@ -1700,3 +1750,106 @@ def fs_download(path: str, t: str = ""):
         raise HTTPException(404)
     from urllib.parse import quote
     return FileResponse(p, headers={"Cache-Control": "no-store", "Content-Disposition": "attachment; filename*=UTF-8''" + quote(p.name)})
+
+
+# ---------------------------------------------------------------- toolbox: text helpers, barcodes, watermark, searchable PDF, background, subtitles
+@_post("/api/toolbox/quick")
+def toolbox_quick_run(b: OpBody):
+    from app import toolbox_quick
+    return toolbox_quick.run(b.kind, b.text, b.options)
+
+
+@_post("/api/toolbox/barcode/preview")
+def toolbox_barcode_preview(b: OpBody):
+    from app import toolbox
+    return toolbox.barcode_preview(b.kind or "code128", b.text, b.options)
+
+
+@_post("/api/toolbox/barcode")
+def toolbox_barcode(b: OpBody):
+    from app import toolbox
+    return toolbox.barcode_start(b.kind or "code128", b.text, b.options, b.output)
+
+
+@_post("/api/toolbox/watermark")
+def toolbox_watermark(b: OpBody):
+    from app import toolbox
+    return toolbox.wm_start(b.paths, b.recursive, b.options, b.output)
+
+
+@_post("/api/toolbox/ocrpdf")
+def toolbox_ocrpdf(b: OpBody):
+    from app import toolbox
+    return toolbox.ocrpdf_start(b.paths, b.recursive, b.options, b.output)
+
+
+@_post("/api/toolbox/nobg")
+def toolbox_nobg(b: OpBody):
+    from app import toolbox
+    return toolbox.bg_start(b.paths, b.recursive, b.options, b.output)
+
+
+@_post("/api/toolbox/subs")
+def toolbox_subs(b: OpBody):
+    from app import toolbox
+    return toolbox.subs_start(b.paths, b.recursive, b.options, b.output)
+
+
+@_post("/api/toolbox/burn")
+def toolbox_burn(b: OpBody):
+    from app import toolbox
+    return toolbox.burn_start(b.paths, b.recursive, b.options, b.output)
+
+
+@app.get("/api/toolbox/caps", dependencies=[Depends(guard)])
+def toolbox_caps():
+    from app import toolbox
+    return {**toolbox.subs_check(), "barcodes": toolbox.KINDS}
+
+
+# ---------------------------------------------------------------- automation: workflows and watch folders
+class FlowIn(BaseModel):
+    steps: list[dict] = Field(default_factory=list)
+    paths: list[str] = Field(default_factory=list)
+    output: dict = Field(default_factory=dict)
+    rules: list[dict] = Field(default_factory=list)
+    id: str = ""
+
+
+@app.get("/api/automate/actions", dependencies=[Depends(guard)])
+def automate_actions():
+    from app import automate
+    return {"actions": automate.actions()}
+
+
+@_post("/api/flow/run")
+def flow_run(b: FlowIn):
+    from app import automate
+    if not b.paths:
+        raise HTTPException(400, "Add some files first.")
+    return automate.flow_start(b.steps, b.paths, b.output)
+
+
+@app.get("/api/flow/{fid}", dependencies=[Depends(guard)])
+def flow_get(fid: str):
+    from app import automate
+    return automate.flow_status(fid)
+
+
+@_post("/api/flow/cancel")
+def flow_stop(b: FlowIn):
+    from app import automate
+    automate.flow_cancel(b.id)
+    return {"ok": True}
+
+
+@app.get("/api/watch", dependencies=[Depends(guard)])
+def watch_get():
+    from app import automate
+    return {"rules": automate.get_rules(), "log": automate.get_log()}
+
+
+@_post("/api/watch")
+def watch_set(b: FlowIn):
+    from app import automate
+    return {"rules": automate.set_rules(b.rules)}

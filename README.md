@@ -2,7 +2,7 @@
 
 *Created by The Fathomist.*
 
-**Website and downloads: https://fathomfile.pages.dev** · License: AGPL-3.0-or-later · Questions: buzznomore401@gmail.com
+**Website and downloads: https://fathomfile.pages.dev** · License: AGPL-3.0-or-later · Questions: fathomfile@hotmail.com
 
 One Windows app for files: find things inside anything, convert any file to any other supported type, shrink or enlarge files, a big toolbox, a forensics lab, network sync and a drives manager. Every option has a hover tip in plain words.
 
@@ -30,7 +30,7 @@ One Windows app for files: find things inside anything, convert any file to any 
 |---|---|
 | **Assistant** | **Assistant** (chat that sees your open tab and files, and can read, make and change files), **Settings** (which AI, key, approval mode, folder for its work, image/voice services, handwriting reader, what it remembers) |
 | Search | Find (words, numbers, objects, **handwriting**; clips with a held, circled still), **Read handwriting** (pages and photos to typed text, with proof pictures), Data finder (emails, keys, cards…) |
-| Convert | Convert (search + dropdown of every file type; change a video's container, such as MP4 to MKV, without re-encoding when the format allows, which is very fast; plus volume, loudness, fades, bass and treble, speed, cut a part, turn and mirror, light and colour, clean-up, encoding speed, graphics-card encoding and picture adjustments, even from one type to the same type), Encodings (text encodings, Base64, Hex…) |
+| Convert | Convert (search + dropdown of every file type), Encodings (text encodings, Base64, Hex…) |
 | Size | Smaller / bigger (zero or random fill), Pack (ZIP, 7z, TAR, SFX .exe, passwords, parts) |
 | Edit | **Editor** (open any file and change what is inside: text and code, Word/PowerPoint/OpenDocument paragraphs, Excel cells, database rows, PDF text, pictures with draw/write/box/blur/crop; also reachable from the ✏️ button beside every file you add), **Find & replace** (Word, Excel, PowerPoint, OpenDocument, e-books, HTML/XML, text in any encoding, PDF, SQLite databases, old Office files, pictures, even raw bytes), **Stamp** (ready-made, own words, own picture, watermarks, page numbers), **Sign** (draw, type, or clean up a photo of your signature), Merge, Split, Join parts, Cut, Rotate/flip, PDF pages, Pictures out, Scan pages, **Print** (digital to paper), **Photocopy** (paper to paper: scan then print), QR codes (make and read), Touch up pictures, Import from scanner (WIA, TWAIN and SANE drivers; see the scanner notes below) |
 | Protect | **Redact** (permanently black out emails, phone numbers, card numbers or your own words), Lock (AES-256 / ChaCha20), PDF password, Shredder (NIST, DoD, VSITR, HMG, Gutmann), Checksums, Hidden details, Photo details, Dates, Permissions |
@@ -38,6 +38,7 @@ One Windows app for files: find things inside anything, convert any file to any 
 | **Lab** | Hex view and patch (on a copy), Hidden NTFS streams, Hidden items (attrib / chflags / dotfiles), Recover deleted (signature carving from drives and images), Hidden data in pictures and sound (LSB and appended data, AES-packed), Disk images (VHD, VHDX, VMDK, VDI, QCOW2, SquashFS, ISO, Docker layers), Junk cleaner, Drive to image (read-only copy with SHA-256), Repair files (PNG, JPEG, GIF, ZIP/Office, PDF), Damage copies (broken test copies, never the original), Linux formats (ext4/Btrfs/XFS/F2FS/ZFS where the system can make them) |
 | **Sync** | SFTP, FTP/FTPS, WebDAV, S3, Azure Blob, SMB, NFS, Android (ADB), MTP, Google Drive and others (via rclone); multi-threaded, optional encryption before upload |
 | **Torrent** | Downloads (BitTorrent client with magnet links and .torrent files, per-file choice, speed limits, resumes after restart), Make a torrent, Torrent info, Download links (http/https/ftp) |
+| **Toolbox** | Text and data helpers, Barcode maker, Workflows, Watch folders (and, in Edit and Convert: Remove watermark, Remove background, Fix and burn subtitles, Searchable PDF) |
 | **My tools** | Tools the assistant wrote for you. Ask it "make me a tool that…" and it appears here next to the built-in ones |
 | Drives | Overview (NTFS, exFAT, FAT32, ReFS, APFS/HFS+/ext detection; check, repair, optimise, format, convert to NTFS), Space map, Will it fit?, Speed up, Which format? |
 
@@ -120,24 +121,16 @@ In **Search > Find**, pick one of six choices, then (optionally) change **Look i
 
 Search also reads inside files that used to be skipped: old Office files (.doc .xls .ppt and relatives, through LibreOffice), SQLite databases (.db .sqlite, every table and row), e-mail files (.eml: subject, sender, body and attachments), camera RAW photos (.cr2 .nef .arw .dng ...; full decode with the optional `rawpy`, otherwise the embedded preview picture) and more plain-text types (.vcf .ics .reg .m3u .nfo .mht ...).
 
-## Changing volume, quality and more while you convert
-In **Convert**, open the sections on the left. Every setting has a hover tip, and all of them work together:
-* **Sound options and adjustments** (sound files and the sound of a video): volume (0-500%), even out the loudness, bass and treble, reduce hiss, fade in and out, mono or stereo, sample rate, sound quality.
-* **Cut a part and change speed** (video and sound): keep only a part between two seconds, and play faster or slower (0.25x to 4x, the pitch of the sound is kept).
-* **Video and GIF options**: quality, size, frame rate, keep the sound, **Only copy (no re-encode)**, encoding speed (faster or smaller file) and **Use the graphics card (NVIDIA)**.
-* **Video look**: turn and mirror, brightness, contrast, colour strength, black and white, reduce grain, sharpen.
-* **Picture adjustments**: brightness, contrast, colour strength, sharpness, blur, fix the lighting, black and white, invert, turn, mirror, print sharpness (DPI), next to the existing quality, size and metadata options.
-* **Same type, only your changes.** To make a song louder, a video faster or a photo brighter without changing its type, choose the file's own type as the target (for example MP3 to MP3) after you set what to change. Fathom saves a new file and never overwrites the original; with nothing to change it says so instead of making a pointless copy. "Convert everything to…" never picks the same type by itself.
-* **Copy first.** When you only change the container (MP4 to MKV) and pick nothing that changes the picture, Fathom copies the video as it is, in seconds, and only re-makes the sound if you changed it. Choosing quality, size, frame rate, speed, turn, colours or the graphics card means the picture is re-encoded.
-* **Graphics card.** Fathom's built-in FFmpeg has no NVIDIA encoder. For the graphics-card option, install a full FFmpeg once (double-click `Get-FFmpeg-GPU.bat`, which uses winget) so it is on your PATH. Without one, or if the card cannot do the job, Fathom uses the processor.
+## Fathom 1.2
 
-## Fathom 1.1
-
-**Also in 1.1:** save your settings as **presets**; choose which **sound track** of a video to keep; **cut silence** from audio; set an exact **quality (CRF)**; **deinterlace** old video; change a video's **shape** (crop or black bars); for pictures: **crop to a shape**, **auto-trim** empty edges, **border**, **fewer colours** and a choice of **resize method**.
-
-- **Adjustments while converting:** volume, loudness, fades, bass and treble, noise reduction, mono or stereo, sample rate, cut a part, speed, turn and mirror, light and colour for video and pictures, blur and sharpen, DPI, encoding speed and graphics-card encoding. Conversions to the same type apply only your changes.
-- **Copy-only video:** changing a container (MP4 to MKV) is a copy by default and takes seconds; it falls back to a normal conversion if copying fails.
-- **Update:** the version is 1.1.0, so `Fathom.bat` updates an installed 1.0 copy the next time it runs.
+- **Welcome popup only once:** Fathom now keeps the same port between runs and saves your settings in `prefs.json` inside its data folder, so the first-run tour no longer comes back.
+- **About 70 more file types:** extra picture, video, audio, office, e-book and archive formats can be read, and many can be written (QOI, NUT, IVF, W64, VOC, E-AC-3, TTA, WavPack, 3G2, F4V, ASF, SWF, H.264/HEVC raw, OpenDocument templates, TSV, DIF, SLK and more). Search (Find) reads them too.
+- **Toolbox tab:** JSON, Base64, web address, unique IDs (UUID 1/3/4/5/7), passwords and passphrases, dates and time zones, hash and HMAC, Markdown to HTML, reading level, text tools, number bases, colours and placeholder text. All offline.
+- **Barcode maker:** Code 128, Code 39, EAN-13, EAN-8, UPC-A and ITF as PNG, SVG, JPEG or PDF, many at once.
+- **PDF:** remove a watermark (automatic, by words, stamps and layers, repeated pictures) and make scanned PDFs searchable.
+- **Pictures:** remove a background (find the subject, or remove one colour) with soften, trim and fill options.
+- **Subtitles:** fix timing, garbled letters and clutter, convert SRT/VTT/text, and burn subtitles into a video.
+- **Workflows and Watch folders:** chain steps, save them, and run them automatically on every new file in a folder.
 
 ## Fathom 1.0
 - First official release. Everything above, plus a **setup wizard** (`Fathom-Setup.vbs`) that lets you choose where the Fathom app, its data and every program go, shows what each drive has free, and shows live progress.

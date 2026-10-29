@@ -18,6 +18,11 @@ which you can send to whoever helps you. None of them deletes anything.
 9-Open-Logs-Folder     Opens the folder with Fathom's logs and data.
 10-Test-Voice          Tests Windows' own voice outside Fathom and plays a sentence (when you cannot hear the assistant).
 
+11-Add-Send-To         Adds "Fathom" to the right-click menu: right-click a file or folder > Send to > Fathom puts it in Fathom's list.
+12-Remove-Send-To      Takes Fathom out of the Send to menu again.
+13-Portable-Mode-On    Keeps your settings, history and saved tools in a FathomData folder next to the app, so they travel with it (USB stick).
+14-Portable-Mode-Off   Goes back to keeping them in the Windows user folder.
+
 Also in the Fathom folder: Fix-Ollama.cmd (the same as 2), Move-Fathom-to-D.cmd (move Fathom to another drive) and
 Uninstall-Fathom.cmd (removes Fathom; asks before each part and never touches your own files).
 These scripts find your Fathom folder by themselves, wherever you installed it.

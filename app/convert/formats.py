@@ -1,3 +1,4 @@
+# Copyright (C) 2026 The Fathomist. Licensed under AGPL-3.0-or-later (see LICENSE).
 """Every file format Fathom knows by name, and how to recognise a file's real format.
 
 A format id is the lower-case extension without the dot ("jpg", "tar.gz"). Several extensions can share
@@ -187,6 +188,83 @@ glb|GLB 3D model|mesh
 gltf|glTF 3D model|mesh
 3mf|3MF 3D model|mesh
 dae|Collada 3D model|mesh
+qoi|QOI image|image
+sun|Sun raster image|image
+dcx|DCX image|image
+xpm|XPM image|image
+msp|MSP bitmap|image
+pcd|Kodak Photo CD (PCD)|image
+fli|FLI animation|image
+blp|BLP texture|image
+im|IFUNC image|image
+ogm|OGM video|video
+wtv|Windows TV recording (WTV)|video
+dv|DV video|video
+nut|NUT video|video
+ivf|IVF video|video
+y4m|Y4M raw video|video
+h264|Raw H.264 video|video
+hevc|Raw H.265 (HEVC) video|video
+amv|AMV video|video
+bik|Bink video|video
+smk|Smacker video|video
+mpc|Musepack audio|audio
+w64|Sony Wave64 audio|audio
+voc|Creative VOC audio|audio
+mp1|MP1 audio|audio
+eac3|Dolby Digital Plus (E-AC3)|audio
+thd|Dolby TrueHD audio|audio
+dsf|DSD audio (DSF)|audio
+dff|DSD audio (DFF)|audio
+gsm|GSM audio|audio
+ircam|IRCAM audio|audio
+tak|TAK audio|audio
+oma|Sony OMA audio|audio
+sdw|StarWriter document|document
+stw|StarOffice template|document
+hwp|Hangul (HWP) document|document
+lwp|Lotus Word Pro|document
+t602|T602 document|document
+mw|MacWrite document|document
+zabw|AbiWord (compressed)|document
+uot|Uniform Office text|document
+sdc|StarCalc spreadsheet|spreadsheet
+stc|StarCalc template|spreadsheet
+lotus123|Lotus 1-2-3 spreadsheet|spreadsheet
+wk1|Lotus 1-2-3 (WK1)|spreadsheet
+wks|Lotus 1-2-3 (WKS)|spreadsheet
+qpw|Quattro Pro spreadsheet|spreadsheet
+wb2|Quattro Pro (WB2)|spreadsheet
+xlsb|Excel binary workbook|spreadsheet
+uos|Uniform Office spreadsheet|spreadsheet
+sdd|StarImpress presentation|presentation
+sti|StarImpress template|presentation
+uop|Uniform Office presentation|presentation
+pot|PowerPoint 97-2003 template|presentation
+vdx|Visio XML drawing|document
+wpg|WordPerfect graphic|document
+cmx|Corel CMX graphic|document
+pmd|PageMaker document|document
+qxp|QuarkXPress document|document
+zmf|Zoner Callisto drawing|document
+dxf|AutoCAD DXF drawing|document
+cgm|CGM vector graphic|document
+svm|StarView metafile|document
+fh|FreeHand drawing|document
+chm|Compiled HTML help (CHM)|ebook
+fbz|Zipped FictionBook (FBZ)|ebook
+pml|Palm Markup (PML) e-book|ebook
+rb|Rocket eBook|ebook
+snb|Shanda Bambook (SNB)|ebook
+tcr|Psion TCR e-book|ebook
+arj|ARJ archive|archive
+z|Unix compress (Z)|archive
+lzma|LZMA compressed file|archive
+zst|Zstandard compressed file|archive
+wim|Windows image (WIM)|archive
+dmg|Apple disk image (DMG)|archive
+msi|Windows installer (MSI)|archive
+xar|XAR archive|archive
 bin|Other file|other
 """
 
@@ -197,6 +275,11 @@ for _line in _TABLE.strip().splitlines():
 
 # extension -> format id, when they differ
 ALIASES = {
+    "ras": "sun", "flc": "fli", "264": "h264", "h265": "hevc", "265": "hevc", "mod": "mpg", "tod": "mpg", "vro": "vob", "evo": "vob",
+    "3gpp": "3gp", "m4b": "m4a", "m4r": "m4a", "weba": "webm", "adts": "aac", "snd": "au", "mjpg": "avi", "602": "t602",
+    "123": "lotus123", "wk3": "wk1", "wk4": "wk1", "wq1": "qpw", "wb1": "wb2", "wb3": "wb2", "uop": "uop", "pm6": "pmd", "p65": "pmd", "pm": "pmd",
+    "fh11": "fh", "fh10": "fh", "fh9": "fh", "fh8": "fh", "fh7": "fh", "mcw": "mw", "sdw": "sdw", "vdw": "vdx", "vsx": "vsdx", "vtx": "vsdx",
+    "ots": "xltx", "stw": "stw", "tgz": "tar.gz", "lzma": "lzma", "taz": "tar.gz",
     "jpeg": "jpg", "jpe": "jpg", "jfif": "jpg", "tiff": "tif", "heif": "heic", "htm": "html", "xhtml": "html",
     "markdown": "md", "mdown": "md", "yml": "yaml", "mpeg": "mpg", "mpe": "mpg", "mts": "m2ts", "aif": "aiff",
     "aifc": "aiff", "oga": "ogg", "tgz": "tar.gz", "tbz2": "tar.bz2", "tbz": "tar.bz2", "txz": "tar.xz",

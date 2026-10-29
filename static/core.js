@@ -48,8 +48,18 @@
   F.copy = async (text) => { try { await navigator.clipboard.writeText(text); F.toast("Copied"); } catch { F.toast("Could not copy"); } };
   F.reveal = (p) => api("/api/reveal", { method: "POST", body: { path: p } }).catch((e) => F.toast(e.message));
   F.openFile = (p) => api("/api/open", { method: "POST", body: { path: p } }).catch((e) => F.toast(e.message));
-  F.save = (key, val) => { try { localStorage.setItem("fathom." + key, JSON.stringify(val)); } catch { /* storage off */ } };
-  F.load = (key, d) => { try { const v = localStorage.getItem("fathom." + key); return v == null ? d : JSON.parse(v); } catch { return d; } };
+  // Settings live on the computer (data folder, prefs.json) and are mirrored in the browser's storage, because the app opens on a different port each time and the browser forgets a "different site".
+  F.prefs = (() => { try { const x = new XMLHttpRequest(); x.open("GET", "/api/prefs", false); x.setRequestHeader("X-Fathom-Token", F.TOKEN); x.send(); const d = x.status === 200 ? JSON.parse(x.responseText) : null; return d && typeof d === "object" ? d : null; } catch { return null; } })();
+  F.save = (key, val) => {
+    try { localStorage.setItem("fathom." + key, JSON.stringify(val)); } catch { /* storage off */ }
+    if (F.prefs) F.prefs[key] = val;
+    try { fetch("/api/prefs", { method: "POST", headers: { "X-Fathom-Token": F.TOKEN, "Content-Type": "application/json" }, body: JSON.stringify({ key, value: val === undefined ? null : val }) }).catch(() => {}); } catch { /* offline */ }
+  };
+  F.load = (key, d) => {
+    if (F.prefs && Object.prototype.hasOwnProperty.call(F.prefs, key)) { const v = F.prefs[key]; return v == null ? d : v; }
+    try { const v = localStorage.getItem("fathom." + key); return v == null ? d : JSON.parse(v); } catch { return d; }
+  };
+
 
   // ---------- tooltips: hover (or focus) anything with data-tip to get a small plain-words box
   (function tooltips() {
@@ -304,6 +314,7 @@
     if (!t.built && t.build) { t.built = true; const placeholder = t.el; t.build(placeholder); }
     for (const x of F.tools) { if (x.el) x.el.classList.toggle("on", x === t); }
     for (const b of document.querySelectorAll("#groups button")) b.setAttribute("aria-selected", b.dataset.g === t.group);
+    { const on = document.querySelector('#groups button[aria-selected="true"]'); if (on && on.scrollIntoView) on.scrollIntoView({ inline: "nearest", block: "nearest" }); }
     for (const b of document.querySelectorAll("#tools button")) { b.setAttribute("aria-selected", b.dataset.t === t.id); }
     renderToolBar(t.group);
     t.onShow && t.onShow(t);
