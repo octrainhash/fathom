@@ -3,8 +3,7 @@
   "use strict";
   const F = window.Fathom, h = F.h;
   const GROUPS = () => Object.fromEntries(F.groups.map((g) => [g.id, g.label]));
-  const applyTheme = (t) => { if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t); else document.documentElement.removeAttribute("data-theme"); };
-  applyTheme(F.load("theme", "auto"));
+  if (F.applyLook) F.applyLook();
 
   F.addTool({ id: "home", group: "home", icon: "🏠", label: "All tools", blurb: "Every tool in Fathom on one page, with a search box.", el: F.makeView("home", false), build: (sec) => {
     const view = F.standardView("home", { files: false, output: false });
@@ -12,16 +11,23 @@
     const main = view.main;
     main.append(F.titleBlock("Everything Fathom can do", "Click any tool to open it. Press Ctrl+K at any time to jump to a tool by typing what you want to do (for example 'sign', 'shrink' or 'torrent')."));
     const q = h("input", { type: "search", placeholder: "What do you want to do?  e.g. replace a word, sign a PDF, make a QR code…", style: "width:100%;max-width:560px", tip: "Type to filter the tools below." });
-    const theme = h("select", { tip: "Auto follows your Windows setting. Light and Dark force one look." }, [["auto", "Match Windows"], ["light", "Light"], ["dark", "Dark"]].map(([v, l]) => h("option", { value: v, text: l })));
-    theme.value = F.load("theme", "auto"); theme.onchange = () => { F.save("theme", theme.value); applyTheme(theme.value); };
-    main.append(h("div", { class: "row", style: "gap:14px;flex-wrap:wrap;margin-top:6px" }, q, h("label", {}, "Look ", theme)));
+    const theme = h("button", { class: "btn small", tip: "Colours, text size, roundness, spacing, fonts, animations and more.", onclick: () => F.show("mine") }, "🎛️ Make it yours");
+    main.append(h("div", { class: "row", style: "gap:14px;flex-wrap:wrap;margin-top:6px" }, q, theme));
+    // "What are you working with?": quick filter by kind of file
+    const KINDS = [["all", "Everything", null], ["pdf", "PDF", /pdf/], ["pic", "Pictures", /picture|photo|image|jpg|png|\bgif\b|webp|icon|collage|meme|face/], ["vid", "Video", /video|movie|\bgif\b|slideshow|subtitle|clip/], ["snd", "Sound", /sound|song|audio|voice|music|speech|recording|volume|silence/],
+      ["tab", "Tables & data", /csv|table|excel|spreadsheet|json|data|database/], ["doc", "Documents", /word|document|text|office|powerpoint|markdown|e-?book|translate/], ["file", "Files & folders", /file|folder|archive|zip|rename|duplicate|disk|drive|torrent|backup|sync/]];
+    let kind = "all";
+    const NEW = new Set(["pdfcrop", "pdfflatten", "pdfmarkdown", "pdffillable", "blurfaces", "meme", "gif", "speed", "loudness", "mute", "pdfheader", "pdftables", "pdfclean", "pdfbookmarks", "pdfresize", "collage", "frame", "icon", "transparent", "picsgif", "slideshow", "videocrop", "reverse", "silence", "fade", "addaudio", "videomark", "csvclean"]);
+    const chips = h("div", { class: "row", style: "gap:8px;flex-wrap:wrap;margin-top:14px" }, KINDS.map(([id, label]) => h("button", { class: "kindchip", "data-k": id, "aria-pressed": String(id === kind), onclick: () => { kind = id; for (const c of chips.children) c.setAttribute("aria-pressed", String(c.dataset.k === id)); draw(); } }, label)));
+    main.append(chips);
     const host = h("div"); main.append(host);
+    const kindOk = (t, g) => { const k = KINDS.find((x) => x[0] === kind); if (k && k[2] && (t.id === "assistant" || t.id === "find" || t.id === "convert")) return false; return !k || !k[2] || k[2].test((t.label + " " + t.blurb + " " + t.id).toLowerCase()); };
     const draw = () => {
       const term = q.value.trim().toLowerCase(); host.replaceChildren(); const G = GROUPS();
       for (const g of F.groups.filter((x) => x.id !== "home")) {
-        const tools = F.tools.filter((t) => t.group === g.id && (!term || (t.label + " " + t.blurb + " " + g.label).toLowerCase().includes(term)));
+        const tools = F.tools.filter((t) => t.group === g.id && kindOk(t, g) && (!term || (t.label + " " + t.blurb + " " + g.label).toLowerCase().includes(term)));
         if (!tools.length) continue;
-        host.append(h("div", { class: "homegroup", text: G[g.id] }), h("div", { class: "homegrid" }, tools.map((t) => h("button", { class: "homecard", tip: t.blurb, onclick: () => F.show(t.id) }, h("b", { text: t.icon + "  " + t.label }), h("span", { text: t.blurb })))));
+        host.append(h("div", { class: "homegroup", text: G[g.id] }), h("div", { class: "homegrid" }, tools.map((t) => h("button", { class: "homecard", tip: t.blurb, onclick: () => F.show(t.id) }, h("b", { text: t.icon + "  " + t.label }, NEW.has(t.id) ? h("em", { class: "newtag", text: "new" }) : null), h("span", { text: t.blurb })))));
       }
       if (!host.children.length) host.append(h("p", { class: "hint", text: "Nothing matches that. Try another word." }));
     };

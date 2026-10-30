@@ -85,6 +85,9 @@ $Fixes = @(
   @{ Id = 'serve'; Title = 'Start Fathom in server mode (use it from a phone, tablet or another PC)'; Kw = 'server mode phone tablet remote browser network serve link token'; Desc = 'Starts Fathom as a private web server and shows a link. Open the link on any device on your network. Keep the window open.'; Body = 'call :need "Fathom.bat"' + "`r`n" + 'call "%APP%\Fathom.bat" serve' },
   @{ Id = 'serveoff'; Title = 'Stop starting the server with Windows'; Kw = 'server startup windows remove auto start boot'; Desc = 'Removes the Fathom Server entry from Windows startup.'; Body = 'del /f /q "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Fathom Server.lnk"' },
   @{ Id = 'sendto'; Title = 'Add "Send to > Fathom" to the right-click menu'; Kw = 'send to right click menu context'; Desc = 'Right-click any file, Send to, Fathom.'; Body = (Q '11-Add-Send-To.cmd') },
+  @{ Id = 'pyclean'; Title = 'Python will not install or says it is already installed (remove Python completely)'; Kw = 'python already installed error remove uninstall stale record 1638 not found'; Desc = 'Removes every Python 3 and its leftover records from this PC, then you run the installer again. Your files and Fathom data are not touched.'; Body = (Q 'Remove-Python-Completely.bat') },
+  @{ Id = 'ctx'; Title = 'Add "Open with Fathom" to the right-click menu of every file and folder'; Kw = 'open with right click menu context explorer'; Desc = 'Right-click any file or folder, then Open with Fathom (in Windows 11 under Show more options).'; Body = 'call :need "launch.py"' + "`r`n" + '>"%LOCALAPPDATA%\Fathom\open.cmd" echo start "" "%LOCALAPPDATA%\Fathom\venv\Scripts\pythonw.exe" "%APP%\launch.py" %%*' + "`r`n" + 'reg add "HKCU\Software\Classes\*\shell\Fathom" /ve /d "Open with Fathom" /f >nul' + "`r`n" + 'reg add "HKCU\Software\Classes\*\shell\Fathom\command" /ve /d "\"%LOCALAPPDATA%\Fathom\open.cmd\" \"%%1\"" /f >nul' + "`r`n" + 'reg add "HKCU\Software\Classes\Directory\shell\Fathom" /ve /d "Open with Fathom" /f >nul' + "`r`n" + 'reg add "HKCU\Software\Classes\Directory\shell\Fathom\command" /ve /d "\"%LOCALAPPDATA%\Fathom\open.cmd\" \"%%1\"" /f >nul' },
+  @{ Id = 'ctxoff'; Title = 'Remove "Open with Fathom" from the right-click menu'; Kw = 'open with right click menu context remove explorer'; Desc = 'Takes Fathom out of the right-click menu.'; Body = 'reg delete "HKCU\Software\Classes\*\shell\Fathom" /f >nul 2>&1' + "`r`n" + 'reg delete "HKCU\Software\Classes\Directory\shell\Fathom" /f >nul 2>&1' },
   @{ Id = 'sendtooff'; Title = 'Remove "Send to > Fathom"'; Kw = 'send to remove right click menu'; Desc = 'Takes Fathom out of the Send to menu.'; Body = (Q '12-Remove-Send-To.cmd') },
   @{ Id = 'portable'; Title = 'Portable mode ON (settings travel with the folder)'; Kw = 'portable usb stick travel'; Desc = 'Keeps settings and history next to the app.'; Body = (Q '13-Portable-Mode-On.cmd') },
   @{ Id = 'portableoff'; Title = 'Portable mode OFF'; Kw = 'portable usb off'; Desc = 'Goes back to the normal data place.'; Body = (Q '14-Portable-Mode-Off.cmd') }
@@ -397,7 +400,7 @@ function Show-Wizard {
   $p1.Controls.Add((New-Label 'Everything of Fathom goes inside this ONE folder, on this one drive: the app, its data (settings, history, packages, speech and vision models, caches), Python, LibreOffice, Calibre, 7-Zip, Ollama and the AI models. Nothing is put on any other drive. (Windows keeps one tiny shortcut-like link at its usual data place so every program still finds things.)' 24 36 670 66)); $p1.Controls[$p1.Controls.Count - 1].ForeColor = $gray
   $ui.TbApp = New-Box 24 112 560; $ui.TbApp.Text = (Join-Path $best 'Fathom')
   $ui.BrApp = New-Button 'Browse...' 594 110 96 27
-  $p1.Controls.Add((New-Label 'Inside it you will get:   Fathom (the app),   Fathom Data,   Programs' 24 148 670 20)); $p1.Controls[$p1.Controls.Count - 1].Font = $fontBold
+  $p1.Controls.Add((New-Label 'Inside it you will get:   a Fathom folder (the app),   a Fathom Data folder,   a Programs folder' 24 148 670 20)); $p1.Controls[$p1.Controls.Count - 1].Font = $fontBold
   # (kept for the code below, but hidden: there is only one folder now)
   $ui.TbData = New-Box 24 0 100; $ui.TbData.Visible = $false
   $ui.BrData = New-Button '' 0 0 10 10; $ui.BrData.Visible = $false
@@ -442,10 +445,11 @@ function Show-Wizard {
   $ui.CbServe = New-Check 'Add a "Fathom Server" shortcut: use Fathom from your phone, tablet or another PC (it shows a private link)' 38 132 650 $false
   $ui.CbServeAuto = New-Check 'Start the server by itself when Windows starts' 62 158 600 $false
   $ui.CbServeAuto.Enabled = $false
+  $ui.CbCtx = New-Check 'Add "Open with Fathom" when you right-click any file or folder (Windows 11: under Show more options)' 38 190 660 $true
   $ui.CbServe.Add_CheckedChanged({ $ui.CbServeAuto.Enabled = [bool]$ui.CbServe.Checked; if (-not $ui.CbServe.Checked) { $ui.CbServeAuto.Checked = $false } })
-  $p3.Controls.AddRange(@($ui.CbDesk, $ui.CbStart, $ui.CbSendTo, $ui.CbServe, $ui.CbServeAuto))
-  $p3.Controls.Add((New-Label ('Fathom does not add itself to Windows'' Settings > Apps list. To remove it later, open this setup window again and use Problems and Fixes > Remove Fathom: it asks before each part and never touches your own files.') 24 196 670 50))
-  $p3.Controls.Add((New-Label ('Click Next to see a summary of your choices. Nothing is installed until you click Install.') 24 262 670 40))
+  $p3.Controls.AddRange(@($ui.CbDesk, $ui.CbStart, $ui.CbSendTo, $ui.CbServe, $ui.CbServeAuto, $ui.CbCtx))
+  $p3.Controls.Add((New-Label ('Fathom does not add itself to Windows'' Settings > Apps list. To remove it later, open this setup window again and use Problems and Fixes > Remove Fathom: it asks before each part and never touches your own files.') 24 236 670 50))
+  $p3.Controls.Add((New-Label ('Click Next to see a summary of your choices. Nothing is installed until you click Install.') 24 296 670 40))
 
   # ---- page 4: summary
   $p4 = New-Page
@@ -539,6 +543,7 @@ function Show-Wizard {
     $plan.Desk = [bool]$ui.CbDesk.Checked
     $plan.Start = [bool]$ui.CbStart.Checked
     $plan.SendTo = [bool]$ui.CbSendTo.Checked
+    $plan.Ctx = [bool]$ui.CbCtx.Checked
     $plan.Serve = [bool]$ui.CbServe.Checked
     $plan.ServeAuto = [bool]$ui.CbServeAuto.Checked
     $on = @{}; $dirs = [ordered]@{}
@@ -685,6 +690,7 @@ function Show-Wizard {
     $t += 'Shortcuts:    ' + ($sc -join ', ')
     $t += 'Server mode shortcut: ' + $(if ($plan.Serve) { $(if ($plan.ServeAuto) { 'yes, starts with Windows' } else { 'yes' }) } else { 'no' })
     $t += 'Right-click menu (Send to > Fathom): ' + $(if ($plan.SendTo) { 'yes' } else { 'no' })
+    $t += 'Right-click menu (Open with Fathom): ' + $(if ($plan.Ctx) { 'yes' } else { 'no' })
     $t += ''
     $needs = & $getNeeds $plan
     $nt = & $needsText $plan $needs
@@ -727,7 +733,6 @@ function Show-Wizard {
     if ($skip.Count -eq 4) { $edition = 'lite' } elseif ($skip.Count -eq 0) { $edition = 'full' }
     $st.Edition = $(if ($skip.Count -ge 3) { 'lite' } else { 'full' })
     $parent = Split-Path -Parent $plan.App
-    if (-not $parent) { $parent = $plan.App }
     $lines = @(
       '# Saved by the Fathom setup wizard. Delete this file to install in place without moving anything.',
       ('EDITION=' + $edition),
@@ -792,6 +797,20 @@ function Show-Wizard {
             $lnk.TargetPath = $pyw; $lnk.Arguments = '"' + $launch + '"'; $lnk.WorkingDirectory = $st.Plan.App
             $ico = Join-Path $st.Plan.App 'assets\fathom.ico'; if (Test-Path -LiteralPath $ico) { $lnk.IconLocation = $ico }
             $lnk.Save()
+          }
+        }
+      } catch {}
+      try {
+        if ($st.Plan.Ctx) {
+          $pyw2 = Join-Path $DataHome 'venv\Scripts\pythonw.exe'
+          $launch2 = Join-Path $st.Plan.App 'launch.py'
+          $cfgDir = Join-Path $env:LOCALAPPDATA 'Fathom'
+          New-Item -ItemType Directory -Force -Path $cfgDir | Out-Null
+          Set-Content -LiteralPath (Join-Path $cfgDir 'open.cmd') -Encoding ASCII -Value ('@echo off' + "`r`n" + 'start "" "' + $pyw2 + '" "' + $launch2 + '" %*')
+          foreach ($k in '*', 'Directory') {
+            $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\Classes\' + $k + '\shell\Fathom')
+            $key.SetValue('', 'Open with Fathom'); $ico3 = Join-Path $st.Plan.App 'assets\fathom.ico'; if (Test-Path -LiteralPath $ico3) { $key.SetValue('Icon', $ico3) }
+            $cmdKey = $key.CreateSubKey('command'); $cmdKey.SetValue('', '"' + (Join-Path $cfgDir 'open.cmd') + '" "%1"'); $cmdKey.Close(); $key.Close()
           }
         }
       } catch {}
@@ -1015,7 +1034,7 @@ function Show-Wizard {
       [System.Windows.Forms.MessageBox]::Show('Windows did not give permission, so nothing was changed. Click Repair again and choose Yes when Windows asks.', 'Fathom Setup', 'OK', 'Information') | Out-Null
       return
     }
-    $st.Plan = @{ App = $inst.App; Root = $inst.Root; DataHome = $true; Data = $DataHome; SendTo = $false; Serve = $false; Desk = $false; Start = $false; Dirs = @{}; On = @{} }
+    $st.Plan = @{ App = $inst.App; Root = $inst.Root; DataHome = $true; Data = $DataHome; SendTo = $false; Ctx = $false; Serve = $false; Desk = $false; Start = $false; Dirs = @{}; On = @{} }
     $st.Edition = 'full'; $st.Installing = $true
     & $setPage 5
     $ui.Timer.Start()

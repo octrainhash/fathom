@@ -44,6 +44,7 @@ Start-Sleep -Seconds 2
 # 2. shortcuts
 Say '[2/5] Removing the shortcuts...'
 $desk = [Environment]::GetFolderPath('Desktop'); $prog = [Environment]::GetFolderPath('Programs')
+foreach ($k in '*', 'Directory') { try { [Microsoft.Win32.Registry]::CurrentUser.DeleteSubKeyTree('Software\Classes\' + $k + '\shell\Fathom', $false) } catch {} }
 foreach ($l in @((Join-Path $desk 'Fathom.lnk'), (Join-Path $prog 'Fathom.lnk'), (Join-Path $data 'Fathom.lnk'))) {
   if (Test-Path -LiteralPath $l) { Remove-Item -LiteralPath $l -Force -ErrorAction SilentlyContinue }
 }

@@ -7,7 +7,7 @@
   // the most-wanted editing tools come first in the Edit group
   { const first = ["editor", "replace", "stamp", "sign"].map((id) => F.tools.find((t) => t.id === id)).filter(Boolean); const at = F.tools.findIndex((t) => t.id === "merge"); if (first.length && at >= 0) { F.tools = F.tools.filter((t) => !first.includes(t)); F.tools.splice(F.tools.findIndex((t) => t.id === "merge"), 0, ...first); } }
   F.buildNav();
-  const want = F.load("tool", "find");
+  const want = (F.look && F.look().start === "home") ? "home" : F.load("tool", "find");
   F.show(F.tools.some((t) => t.id === want) ? want : "find");
   F.engineRefresh && F.engineRefresh();
   F.refreshUndo && F.refreshUndo();

@@ -5,6 +5,13 @@
   const F = (window.Fathom = {});
   const $ = (id) => document.getElementById(id);
   F.$ = $;
+  // the browser's append() writes the word "null" when it is handed null; skip empty arguments instead
+  for (const m of ["append", "prepend", "replaceChildren"]) {
+    for (const proto of [Element.prototype, DocumentFragment.prototype]) {
+      const orig = proto[m]; if (!orig) continue;
+      proto[m] = function (...kids) { return orig.apply(this, kids.filter((k) => k != null && k !== false)); };
+    }
+  }
   F.TOKEN = document.querySelector('meta[name="token"]').content;
 
   // ---------- helpers (text from files is always inserted as text, never as HTML)
@@ -164,7 +171,7 @@
         h("button", { class: "btn fill", tip: "Choose one or more files from your PC. You can pick as many as you like.", onclick: () => pick("files") }, "Add files…"),
         h("button", { class: "btn fill", tip: "Choose a whole folder. Everything inside it (and its subfolders) is included.", onclick: () => pick("folder") }, "Add folder…"),
         extra.links ? h("button", { class: "btn fill", tip: "Search a video from a web link instead of a file on your PC.", onclick: () => { linkRow.hidden = !linkRow.hidden; if (!linkRow.hidden) linkRow.querySelector("input").focus(); } }, "Add link…") : null),
-      linkRow, ul, empty, clear);
+      linkRow || "", ul, empty, clear);
     host._parts = { ul, empty, clear };
     hosts.add(host); renderSources();
   };
@@ -280,6 +287,7 @@
         if (s.bytes_in && s.bytes_out && s.kind === "size") this.sum.append(stat(`${F.fmtBytes(s.bytes_in)} → ${F.fmtBytes(s.bytes_out)}`, "total size"));
       }
       this.data = s.data; this.status = s;
+      try { F.jobFinished && F.jobFinished(s, this.noun); } catch (e) { /* never block */ }
       this.onDone && this.onDone(s, this.items);
     }
   };

@@ -242,12 +242,51 @@ def parse_args(argv: list[str]):
     ap.add_argument("--port", type=int, default=0, help="port (server mode default 8777)")
     ap.add_argument("--https", action="store_true", help="use https with a self-made certificate (needed for the microphone on phones)")
     ap.add_argument("--no-window", action="store_true", help="do not open a window or browser, just run")
+    ap.add_argument("files", nargs="*", help="files or folders to add to Fathom's list (this is what 'Send to > Fathom' uses)")
     return ap.parse_args(argv)
+
+
+def hand_over(files: list[str]) -> bool:
+    """'Send to > Fathom': writes the files where Fathom picks them up. True when Fathom is already open (then nothing else needs to start)."""
+    from app.paths import data_root
+    inbox = data_root() / "incoming.json"
+    try:
+        old = json.loads(inbox.read_text(encoding="utf-8")) if inbox.exists() else []
+    except (OSError, ValueError):
+        old = []
+    paths = [str(Path(f).resolve()) for f in files if Path(f).exists()]
+    tmp = inbox.with_suffix(".tmp")
+    tmp.write_text(json.dumps(list(dict.fromkeys(old + paths))), encoding="utf-8")
+    os.replace(tmp, inbox)
+    try:
+        port = int((data_root() / "port.txt").read_text().strip())
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/health", timeout=2) as r:
+            running = r.status == 200
+    except Exception:
+        running = False
+    if running and os.name == "nt":
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            hwnd = user32.FindWindowW(None, TITLE)
+            if hwnd:
+                user32.ShowWindow(hwnd, 9)            # SW_RESTORE
+                user32.SetForegroundWindow(hwnd)
+        except Exception:
+            pass
+    return running
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
     serve = args.serve
+    if args.files and not serve:
+        try:
+            sys.path.insert(0, str(ROOT))
+            if hand_over(args.files):
+                return 0
+        except Exception:
+            note("could not hand files to the open Fathom:\n" + traceback.format_exc())
     claim_taskbar_identity()
     try:
         import fastapi, uvicorn  # noqa: F401

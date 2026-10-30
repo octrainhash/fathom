@@ -183,6 +183,17 @@ goto :after_python_setup
 :run_python_setup
 start /wait "" "%PYSETUP%" /quiet InstallAllUsers=1 PrependPath=0 Include_launcher=1 InstallLauncherAllUsers=1 Include_pip=1 Include_tcltk=1 Include_test=0 Include_doc=0 Shortcuts=0
 echo Python installer finished with code %errorlevel% >> "%BATLOG%"
+set "PY="
+call :find_python
+if defined PY goto :after_python_setup
+rem ---- Python did not install. The usual cause: an old, half-removed Python left its install record behind, so the installer thinks it is already there.
+rem      Clear only those stale Python 3.12 records, then try once more.
+echo Python did not install. Clearing an old leftover Python record and trying again...
+echo healing stale Python records >> "%BATLOG%"
+start /wait "" "%PYSETUP%" /uninstall /quiet >> "%BATLOG%" 2>&1
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; foreach($r in 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall','HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall','HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'){ Get-ChildItem $r | ForEach-Object { if((Get-ItemProperty $_.PSPath).DisplayName -match '^Python 3\.12|^Python Launcher'){ Remove-Item -LiteralPath $_.PSPath -Recurse -Force } } }; foreach($k in 'HKLM:\SOFTWARE\Python\PythonCore\3.12','HKLM:\SOFTWARE\WOW6432Node\Python\PythonCore\3.12','HKCU:\SOFTWARE\Python\PythonCore\3.12'){ Remove-Item -LiteralPath $k -Recurse -Force }; Get-ChildItem 'HKLM:\SOFTWARE\Classes\Installer\Products' | ForEach-Object { if((Get-ItemProperty $_.PSPath).ProductName -match '^Python 3\.12|^Python Launcher'){ Remove-Item -LiteralPath $_.PSPath -Recurse -Force } }; foreach($b in 'C:\ProgramData\Package Cache',(Join-Path $env:LOCALAPPDATA 'Package Cache')){ if(Test-Path $b){ Get-ChildItem $b -Directory | ForEach-Object { if(Get-ChildItem -LiteralPath $_.FullName -Filter 'python-3.12*.exe' -File){ Remove-Item -LiteralPath $_.FullName -Recurse -Force } } } }" >> "%BATLOG%" 2>&1
+start /wait "" "%PYSETUP%" /quiet InstallAllUsers=1 PrependPath=0 Include_launcher=1 InstallLauncherAllUsers=1 Include_pip=1 Include_tcltk=1 Include_test=0 Include_doc=0 Shortcuts=0
+echo Python installer (second try) finished with code %errorlevel% >> "%BATLOG%"
 
 :after_python_setup
 set "PY="
@@ -257,7 +268,9 @@ exit /b 0
 :no_python
 echo.
 echo Could not install Python 3.12 automatically.
-echo Please install it from https://www.python.org/downloads/release/python-31210/
+echo If it says Python is already installed, open Fathom Setup, choose Problems and Fixes,
+echo and use "Python will not install" - it clears the old leftovers.
+echo Or install it from https://www.python.org/downloads/release/python-31210/
 echo (tick "Add python.exe to PATH" is not needed) and then run Fathom.bat again.
 goto :failed
 

@@ -8,6 +8,8 @@
 
 * **Find** words, numbers, objects, faces, handwriting and spoken words inside any file, photo or video.
 * **Convert** between hundreds of file types (documents, pictures, audio, video, e-books, archives, data, 3D, fonts and more), with every option left to you.
+* **Even more tools:** Header and footer (Bates numbers), PDF tables to Excel, Clean PDF, Bookmarks, PDF page size, Collage, Frame, Icon maker, See-through colour, Pictures to animation, Slideshow video, Crop video, Reverse, Cut silence, Fade, Add music, Video watermark, Tidy a CSV.
+* **More tools:** Crop PDF, Flatten PDF, PDF to Markdown, Make a PDF fillable, Hide faces, Meme maker, Video to GIF, Change speed, Even out volume and Remove sound.
 * **Subtitles for any movie:** make them by listening (every spoken language, with word timing), translate them into 140+ languages, fix, shift, merge and burn them in.
 * **Toolbox:** barcodes and QR codes, searchable PDFs (OCR), background remover, watermark remover, colour palettes, contact sheets, audio waveform pictures, and text and developer helpers (JSON, JWT, regex, hashes, converters, units, calculator and more).
 * **Workflows and watch folders:** chain steps and run them on a folder automatically.
@@ -16,7 +18,7 @@
 * **Right-click any file > Send to > Fathom,** a portable mode for a USB stick, and one-click settings backup and restore.
 * **Everything is installed up front.** Pick the folder once and the installer downloads every program and model (speech, object search, faces, handwriting reader, assistant), so no feature ever stops to say "downloading, please wait".
 
-Every option has a hover tip in plain words. Version 1.2.
+Every option has a hover tip in plain words. Version 1.4.
 
 ## Install
 **Which system?** Windows: use `Fathom.bat` (below). **macOS:** double-click `Fathom.command`. **Linux / Raspberry Pi / WSL:** run `./fathom.sh`. **Phone, tablet, Chromebook, iPad:** run Fathom in server mode on a computer or Docker (see *Any device* below) and open its link in the device's browser. Docker: `docker compose up -d`.
@@ -143,6 +145,14 @@ In **Convert**, open the sections on the left. Every setting has a hover tip, an
 * **Same type, only your changes.** To make a song louder, a video faster or a photo brighter without changing its type, choose the file's own type as the target (for example MP3 to MP3) after you set what to change. Fathom saves a new file and never overwrites the original; with nothing to change it says so instead of making a pointless copy. "Convert everything to…" never picks the same type by itself.
 * **Copy first.** When you only change the container (MP4 to MKV) and pick nothing that changes the picture, Fathom copies the video as it is, in seconds, and only re-makes the sound if you changed it. Choosing quality, size, frame rate, speed, turn, colours or the graphics card means the picture is re-encoded.
 * **Graphics card.** Fathom's built-in FFmpeg has no NVIDIA encoder. For the graphics-card option, install a full FFmpeg once (open `Fathom-Setup.vbs` > Problems and Fixes > graphics card, which uses winget) so it is on your PATH. Without one, or if the card cannot do the job, Fathom uses the processor.
+
+## Fathom 1.4
+
+- Workflows and Watch folders can use any tool; presets on every tool page; Check redactions, Passport photo, Fit under a size; job-finished notification; "Open with Fathom" right-click menu.
+
+## Fathom 1.3
+
+- Make it yours (full look and behaviour settings), PDF/A archive tool and tool filters by file type on the home page.
 
 ## Fathom 1.2
 

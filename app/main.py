@@ -303,6 +303,198 @@ def t_rotate(b: OpBody):
     return filetools2.rotate_start(b.paths, b.recursive, int(b.number), b.mode, b.output, str(b.options.get("pages") or ""), str(b.options.get("orient") or "any"))
 
 
+@_post("/api/tools/pdfcrop")
+def t_pdfcrop(b: OpBody):
+    from app import filetools4
+    return filetools4.crop_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/pdfflatten")
+def t_pdfflatten(b: OpBody):
+    from app import filetools4
+    return filetools4.flatten_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/pdfmarkdown")
+def t_pdfmarkdown(b: OpBody):
+    from app import filetools4
+    return filetools4.pdf_markdown_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/pdffillable")
+def t_pdffillable(b: OpBody):
+    from app import filetools4
+    return filetools4.fillable_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/blurfaces")
+def t_blurfaces(b: OpBody):
+    from app import filetools4
+    return filetools4.blur_faces_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/meme")
+def t_meme(b: OpBody):
+    from app import filetools4
+    return filetools4.meme_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/gif")
+def t_gif(b: OpBody):
+    from app import filetools4
+    return filetools4.gif_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/speed")
+def t_speed(b: OpBody):
+    from app import filetools4
+    return filetools4.speed_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/loudness")
+def t_loudness(b: OpBody):
+    from app import filetools4
+    return filetools4.loudness_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/mute")
+def t_mute(b: OpBody):
+    from app import filetools4
+    return filetools4.mute_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/pdfheader")
+def t_pdfheader(b: OpBody):
+    from app import filetools5
+    return filetools5.pdf_header_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/pdftables")
+def t_pdftables(b: OpBody):
+    from app import filetools5
+    return filetools5.pdf_tables_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/pdfclean")
+def t_pdfclean(b: OpBody):
+    from app import filetools5
+    return filetools5.pdf_clean_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/pdfbookmarks")
+def t_pdfbookmarks(b: OpBody):
+    from app import filetools5
+    return filetools5.pdf_bookmarks_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/pdfresize")
+def t_pdfresize(b: OpBody):
+    from app import filetools5
+    return filetools5.pdf_resize_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/collage")
+def t_collage(b: OpBody):
+    from app import filetools5
+    return filetools5.collage_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/frame")
+def t_frame(b: OpBody):
+    from app import filetools5
+    return filetools5.frame_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/icon")
+def t_icon(b: OpBody):
+    from app import filetools5
+    return filetools5.icon_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/transparent")
+def t_transparent(b: OpBody):
+    from app import filetools5
+    return filetools5.transparent_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/picsgif")
+def t_picsgif(b: OpBody):
+    from app import filetools5
+    return filetools5.pics_gif_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/slideshow")
+def t_slideshow(b: OpBody):
+    from app import filetools5
+    return filetools5.slideshow_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/videocrop")
+def t_videocrop(b: OpBody):
+    from app import filetools5
+    return filetools5.video_crop_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/reverse")
+def t_reverse(b: OpBody):
+    from app import filetools5
+    return filetools5.reverse_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/silence")
+def t_silence(b: OpBody):
+    from app import filetools5
+    return filetools5.silence_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/fade")
+def t_fade(b: OpBody):
+    from app import filetools5
+    return filetools5.fade_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/addaudio")
+def t_addaudio(b: OpBody):
+    from app import filetools5
+    return filetools5.add_audio_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/videomark")
+def t_videomark(b: OpBody):
+    from app import filetools5
+    return filetools5.video_mark_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/csvclean")
+def t_csvclean(b: OpBody):
+    from app import filetools5
+    return filetools5.csv_clean_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/pdfa")
+def t_pdfa(b: OpBody):
+    from app import filetools5
+    return filetools5.pdfa_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/pdfredactcheck")
+def t_pdfredactcheck(b: OpBody):
+    from app import filetools6
+    return filetools6.redactcheck_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/passport")
+def t_passport(b: OpBody):
+    from app import filetools6
+    return filetools6.passport_start(b.paths, b.recursive, b.output, b.options)
+
+
+@_post("/api/tools/fitsize")
+def t_fitsize(b: OpBody):
+    from app import filetools6
+    return filetools6.fitsize_start(b.paths, b.recursive, b.output, b.options)
+
+
 @_post("/api/tools/extract")
 def t_extract(b: OpBody):
     return filetools2.extract_start(b.paths, b.recursive, b.mode, b.number or 1, b.value or "jpg", b.output, str(b.options.get("pages") or ""))

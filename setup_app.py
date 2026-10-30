@@ -322,6 +322,69 @@ def _msi(url: str, label: str) -> bool:
     return rc in (0, 3010)
 
 
+def _heal_stale(name_pattern: str, why: str = "") -> int:
+    """An old, half-removed program leaves its install record behind, and then its installer says "already installed" and does nothing.
+    Called only when the program's files are NOT there: removes that program's stale records (running its own uninstaller first when it still works). Returns how many records were cleared."""
+    if not IS_WIN:
+        return 0
+    import re
+    try:
+        import winreg
+    except ImportError:
+        return 0
+    pat = re.compile(name_pattern, re.I)
+    cleared = 0
+    roots = [(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", winreg.KEY_WOW64_64KEY),
+             (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", winreg.KEY_WOW64_32KEY),
+             (winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", 0)]
+    for hive, path, view in roots:
+        try:
+            top = winreg.OpenKey(hive, path, 0, winreg.KEY_READ | view)
+        except OSError:
+            continue
+        names = []
+        i = 0
+        while True:
+            try:
+                names.append(winreg.EnumKey(top, i))
+                i += 1
+            except OSError:
+                break
+        for sub in names:
+            try:
+                k = winreg.OpenKey(top, sub)
+                try:
+                    disp = winreg.QueryValueEx(k, "DisplayName")[0]
+                except OSError:
+                    continue
+                if not pat.search(str(disp)):
+                    continue
+                try:
+                    unin = str(winreg.QueryValueEx(k, "UninstallString")[0])
+                except OSError:
+                    unin = ""
+                say(f"    clearing an old leftover record of {disp} ...")
+                import re as _re
+                guid = _re.search(r"\{[0-9A-Fa-f-]{36}\}", unin)
+                try:
+                    if guid:
+                        run(["msiexec", "/x", guid.group(0), "/qn", "/norestart"], check=False, timeout=600)
+                    else:
+                        exe = _re.match(r'^"?([^"]+?\.exe)"?', unin)
+                        if exe and os.path.exists(exe.group(1)):
+                            run([exe.group(1), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], check=False, timeout=600)
+                except Exception:
+                    pass
+                try:
+                    winreg.DeleteKey(top, sub)       # a record that survived its own uninstaller is the stale one
+                except OSError:
+                    pass
+                cleared += 1
+            except OSError:
+                continue
+    return cleared
+
+
 def install_programs() -> None:
     step(7, "Installing LibreOffice, Calibre and 7-Zip (they let Fathom convert Word, Excel, PowerPoint, e-books, RAR and 100+ more formats)")
     if not IS_WIN:
@@ -344,19 +407,28 @@ def install_programs() -> None:
             say(f"  {name}: already installed.")
             continue
         say(f"  Installing {name}... (this takes a few minutes)")
-        ok = False
-        if name == "LibreOffice":
-            v = _latest_libreoffice()
-            if v:
-                ok = _msi(f"https://download.documentfoundation.org/libreoffice/stable/{v}/win/x86_64/LibreOffice_{v}_Win_x86-64.msi", "LibreOffice")
-        elif name == "Calibre":
-            v = _latest_calibre()
-            if v:
-                ok = _msi(f"https://download.calibre-ebook.com/{v}/calibre-64bit-{v}.msi", "Calibre")
-        elif name == "7-Zip":
-            url = _latest_7zip_msi()
-            if url:
-                ok = _msi(url, "7-Zip")
+
+        def attempt() -> bool:
+            if name == "LibreOffice":
+                v = _latest_libreoffice()
+                if v:
+                    return _msi(f"https://download.documentfoundation.org/libreoffice/stable/{v}/win/x86_64/LibreOffice_{v}_Win_x86-64.msi", "LibreOffice")
+            elif name == "Calibre":
+                v = _latest_calibre()
+                if v:
+                    return _msi(f"https://download.calibre-ebook.com/{v}/calibre-64bit-{v}.msi", "Calibre")
+            elif name == "7-Zip":
+                url = _latest_7zip_msi()
+                if url:
+                    return _msi(url, "7-Zip")
+            return False
+
+        ok = attempt()
+        if not (ok and _exists_any(exes)):
+            # the usual reason for a silent do-nothing: an old half-removed copy left its record, so the installer thinks it is already there
+            if _heal_stale({"LibreOffice": r"^LibreOffice", "Calibre": r"^calibre", "7-Zip": r"^7-Zip"}[name]):
+                say(f"  Trying {name} again...")
+                ok = attempt()
         if not (ok and _exists_any(exes)):
             say(f"  Trying the Windows Package Manager for {name}...")
             _winget(winget_id)
@@ -733,6 +805,11 @@ def setup_ollama() -> None:
         if not _winget("Ollama.Ollama"):
             _ollama_direct()
         exe = _ollama_exe()
+        if not exe and _heal_stale(r"^Ollama"):
+            say("  Trying Ollama again...")
+            if not _ollama_direct():
+                _winget("Ollama.Ollama")
+            exe = _ollama_exe()
     if not exe:
         say("  !! Ollama could not be installed. Get it from https://ollama.com and run Fathom.bat repair, or choose another AI in Assistant > Settings.")
         return

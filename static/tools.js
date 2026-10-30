@@ -15,8 +15,26 @@
     F.refreshUndo();
   };
 
+  /** "Presets": the tool's ready-made choices plus the ones the person saves, remembered per tool. */
+  function presetBar(t, specs, form) {
+    const key = "presets." + t.id; let mine = F.load(key, {}) || {};
+    const sel = h("select", { tip: "Pick a saved set of choices and every setting below is filled in for you." });
+    const fill = () => {
+      sel.replaceChildren(h("option", { value: "", text: "Settings: as they are now" }));
+      if ((t.presets || []).length) sel.append(h("optgroup", { label: "Ready-made" }, t.presets.map((p, i) => h("option", { value: "b" + i, text: p.name }))));
+      if (Object.keys(mine).length) sel.append(h("optgroup", { label: "Mine" }, Object.keys(mine).map((n) => h("option", { value: "m" + n, text: n }))));
+    };
+    const apply = (vals) => { for (const [k, v] of Object.entries(vals || {})) { try { form.set(k, v); } catch (e) { /* field not shown */ } } };
+    sel.onchange = () => { const v = sel.value; if (!v) return; apply(v[0] === "b" ? t.presets[+v.slice(1)].values : mine[v.slice(1)]); del.hidden = v[0] !== "m"; };
+    const save = h("button", { class: "btn small", tip: "Remember the settings below under a name, to use again in one click.", onclick: () => { const n = (prompt("Name for this set of settings:") || "").trim().slice(0, 40); if (!n) return; mine[n] = form.values(); F.save(key, mine); fill(); sel.value = "m" + n; del.hidden = false; F.toast("Saved. Find it in the Settings list."); } }, "Save these settings");
+    const del = h("button", { class: "btn small danger", hidden: true, tip: "Forget this saved set.", onclick: () => { const v = sel.value; if (v[0] !== "m") return; delete mine[v.slice(1)]; F.save(key, mine); fill(); del.hidden = true; } }, "Delete");
+    fill();
+    return h("div", { class: "row", style: "gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px" }, sel, save, del);
+  }
+
   /** Registers a tool whose page is: title, a form card, a Run button and a job panel. */
   function jobTool(t) {
+    (F.jobTools = F.jobTools || {})[t.id] = t;
     F.addTool({
       id: t.id, group: t.group, icon: t.icon, label: t.label, blurb: t.blurb, el: F.makeView(t.id),
       build: async (sec) => {
@@ -26,7 +44,7 @@
         main.append(F.titleBlock(t.title, t.sub));
         const specs = typeof t.fields === "function" ? await t.fields() : (t.fields || []);
         const form = F.form(specs);
-        if (specs.length) main.append(h("div", { class: "card-box" }, form.el));
+        if (specs.length) main.append(h("div", { class: "card-box" }, presetBar(t, specs, form), form.el));
         if (t.extra) main.append(...[].concat(t.extra(form, view)));
         const go = h("button", { class: t.danger ? "primary warn" : "primary", tip: t.runTip }, t.run || "Start");
         const host = h("div"); const panel = new F.JobPanel(host, { noun: t.noun || "file", renderItem: t.renderItem, onDone: (s, items) => { go.disabled = false; t.done && t.done(s, items, panel); F.refreshUndo(); } });

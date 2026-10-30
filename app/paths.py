@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 APP_NAME = "Fathom"
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 BRAND = "Fathom"
 
 
@@ -15,6 +15,8 @@ def data_root() -> Path:
     override = os.environ.get("FATHOM_HOME")
     if override:
         base = Path(override)
+    elif (ROOT / "portable.txt").exists():
+        base = ROOT / "FathomData"           # portable mode: settings, history and saved tools travel with this folder (for example on a USB stick)
     elif os.environ.get("LOCALAPPDATA"):
         base = Path(os.environ["LOCALAPPDATA"]) / APP_NAME
     else:

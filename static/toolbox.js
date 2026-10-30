@@ -294,14 +294,24 @@ const UNIT_LISTS = {"length": ["m", "km", "cm", "mm", "um", "nm", "mile", "yard"
     num("whisper_maxchars", "Break subtitle lines at about … letters (0 = as spoken)", 0, "", { min: 0, max: 200, show: speechShow }), text("whisper_prompt", "Names and words to expect", "", "", speechShow)];
   const STEP_FIELDS = { convert: CONVERT, ocrpdf: OCRF, watermark: WM, nobg: BG, subs: SUB, translate: TR };
   const LABELS = { convert: "Convert to another type", ocrpdf: "Make PDF searchable (OCR)", watermark: "Remove PDF watermark", nobg: "Remove picture background", subs: "Fix subtitles", translate: "Translate subtitles" };
+  // any ordinary tool page can be a step: its form is saved and replayed
+  const toolSteps = () => Object.values(F.jobTools || {}).filter((t) => Array.isArray(t.fields) && !t.extra && t.files !== false && t.needsFiles !== false && t.endpoint && !/^(merge|join|undo|extract)$/.test(t.id));
+  const stepOut = (action, v) => {
+    if (!action.startsWith("tool:")) return { action, options: v };
+    const t = F.jobTools[action.slice(5)]; let body = {};
+    try { body = t.body(v) || {}; } catch (e) { body = {}; }
+    delete body.paths; delete body.output; delete body.recursive;
+    return { action, options: { v, body, label: t.label } };
+  };
+  const stepLabel = (st) => LABELS[st.action] || (st.options && st.options.label) || st.action;
   /** an editable list of steps: [{action, options}] */
   function stepEditor(initial = []) {
     const root = h("div"); const steps = []; 
     const add = (action = "convert", options = {}) => {
       const holder = h("div", { class: "card-box", style: "margin-bottom:8px" }); const n = steps.length + 1;
-      const pick = h("select", {}, Object.entries(LABELS).map(([k, l]) => h("option", { value: k, text: l }))); pick.value = action;
+      const pick = h("select", {}, [h("optgroup", { label: "Built-in chains" }, Object.entries(LABELS).map(([k, l]) => h("option", { value: k, text: l }))), h("optgroup", { label: "Any other tool" }, toolSteps().map((t) => h("option", { value: "tool:" + t.id, text: t.icon + " " + t.label })))]); pick.value = action;
       const body = h("div"); const rec = { pick, form: null, holder };
-      const draw = () => { const specs = STEP_FIELDS[pick.value]().map((s) => (options[s.id] !== undefined && pick.value === action ? { ...s, value: options[s.id] } : s)); rec.form = F.form(specs); body.replaceChildren(rec.form.el); };
+      const draw = () => { const isT = pick.value.startsWith("tool:"); const saved = isT ? (options.v || {}) : options; const specs = (isT ? F.jobTools[pick.value.slice(5)].fields : STEP_FIELDS[pick.value]()).map((s) => (saved[s.id] !== undefined && pick.value === action ? { ...s, value: saved[s.id] } : s)); rec.form = F.form(specs); body.replaceChildren(rec.form.el); };
       pick.addEventListener("change", draw); draw();
       const del = h("button", { class: "btn small", tip: "Remove this step.", onclick: () => { steps.splice(steps.indexOf(rec), 1); holder.remove(); renum(); } }, "Remove");
       const title = h("b", { text: "" }); rec.title = title;
@@ -310,7 +320,7 @@ const UNIT_LISTS = {"length": ["m", "km", "cm", "mm", "um", "nm", "mile", "yard"
     const renum = () => steps.forEach((s, i) => (s.title.textContent = `Step ${i + 1}`));
     initial.forEach((s) => add(s.action, s.options || {}));
     const addBtn = h("button", { class: "btn", tip: "Add another step after the last one." }, "+ Add a step"); addBtn.onclick = () => add();
-    return { el: h("div", {}, root, addBtn), get: () => steps.map((s) => ({ action: s.pick.value, options: s.form.values() })), set: (list) => { steps.length = 0; root.replaceChildren(); list.forEach((s) => add(s.action, s.options || {})); }, count: () => steps.length };
+    return { el: h("div", {}, root, addBtn), get: () => steps.map((s) => stepOut(s.pick.value, s.form.values())), set: (list) => { steps.length = 0; root.replaceChildren(); list.forEach((s) => add(s.action, s.options || {})); }, count: () => steps.length };
   }
 
   const PRESETS = [
@@ -349,7 +359,7 @@ const UNIT_LISTS = {"length": ["m", "km", "cm", "mm", "um", "nm", "mile", "yard"
       list.replaceChildren(...rules.map((r, i) => h("div", { class: "card-box", style: "margin-bottom:8px" },
         h("div", { class: "row", style: "gap:10px;align-items:center;flex-wrap:wrap" },
           h("b", { text: r.name }), h("span", { class: "hint", text: r.folder }),
-          h("span", { class: "hint", text: (r.exts ? r.exts + " files · " : "all files · ") + r.steps.map((s) => LABELS[s.action]).join(" → ") }),
+          h("span", { class: "hint", text: (r.exts ? r.exts + " files · " : "all files · ") + r.steps.map(stepLabel).join(" → ") }),
           h("button", { class: "btn small", tip: r.enabled ? "Pause this watcher." : "Turn it back on.", onclick: async () => { r.enabled = !r.enabled; await saveAll(); } }, r.enabled ? "Pause" : "Resume"),
           h("button", { class: "btn small", onclick: async () => { rules.splice(i, 1); await saveAll(); } }, "Remove")))));
       if (!rules.length) list.append(h("p", { class: "hint", text: "No watched folders yet. Add one below." }));

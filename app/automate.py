@@ -45,6 +45,38 @@ ACTIONS = {
 }
 
 
+def _tool(tool_id: str, paths, rec, o, out):
+    """Any file tool of the app as a step: the saved form (body) is replayed on the files of the step before."""
+    import re as _re
+    if not _re.fullmatch(r"[a-z0-9_]{2,30}", tool_id or ""):
+        raise UserError("Unknown tool.")
+    from app import main as M
+    path = "/api/tools/" + tool_id
+    fn = next((r.endpoint for r in M.app.routes if getattr(r, "path", "") == path and "POST" in getattr(r, "methods", ())), None)
+    if fn is None:
+        raise UserError("That tool cannot be used in a workflow.")
+    body = dict((o or {}).get("body") or {})
+    for k in ("paths", "output", "recursive"):
+        body.pop(k, None)
+    return fn(M.OpBody(**body, paths=[str(x) for x in paths], recursive=bool(rec), output=out))
+
+
+def _is_step(a) -> bool:
+    return a in ACTIONS or (isinstance(a, str) and a.startswith("tool:"))
+
+
+def _runner(a):
+    if a in ACTIONS:
+        return ACTIONS[a][1]
+    tid = a.split(":", 1)[1]
+    return lambda p, r, o, out: _tool(tid, p, r, o, out)
+
+
+def _label(st) -> str:
+    a = st.get("action")
+    return ACTIONS[a][0] if a in ACTIONS else str((st.get("options") or {}).get("label") or a)
+
+
 def actions() -> list[dict]:
     return [{"id": k, "label": v[0]} for k, v in ACTIONS.items()]
 
@@ -62,7 +94,7 @@ def run_flow_blocking(steps: list[dict], paths: list[str], output: dict, stop: t
     if not steps:
         raise UserError("Add at least one step.")
     for s in steps:
-        if s.get("action") not in ACTIONS:
+        if not _is_step(s.get("action")):
             raise UserError("Unknown step: " + str(s.get("action")))
     work = data_root() / "flows" / uuid.uuid4().hex[:8]
     work.mkdir(parents=True, exist_ok=True)
@@ -76,13 +108,13 @@ def run_flow_blocking(steps: list[dict], paths: list[str], output: dict, stop: t
                 out = output if (output or {}).get("mode") == "folder" else {"mode": "folder", "dir": str((first.parent if first and first.is_file() else first) or work)}
             else:
                 out = {"mode": "folder", "dir": str(work / f"step{i + 1}")}
-            r = ACTIONS[st["action"]][1](cur, True, st.get("options") or {}, out)
+            r = _runner(st["action"])(cur, True, st.get("options") or {}, out)
             if on_job:
                 on_job(r["job"], i, len(steps))
             job = _wait(r["job"], stop)
             produced = [o["path"] for rec in job.results if rec["status"] == "done" for o in rec["outputs"]]
             errs = [rec["error"] for rec in job.results if rec["status"] == "error"]
-            notes.append(f"Step {i + 1} ({ACTIONS[st['action']][0]}): {len(produced)} made" + (f", {len(errs)} failed" if errs else ""))
+            notes.append(f"Step {i + 1} ({_label(st)}): {len(produced)} made" + (f", {len(errs)} failed" if errs else ""))
             if not produced:
                 raise UserError("Step %d produced nothing. %s" % (i + 1, errs[0] if errs else ""))
             cur = produced
@@ -155,7 +187,7 @@ def set_rules(rules: list[dict]) -> list[dict]:
             continue
         clean.append({"id": r.get("id") or uuid.uuid4().hex[:8], "name": str(r.get("name") or Path(folder).name)[:60], "folder": folder, "enabled": bool(r.get("enabled", True)),
                       "exts": str(r.get("exts") or "").lower(), "subfolders": bool(r.get("subfolders")), "existing": bool(r.get("existing")),
-                      "steps": [s for s in (r.get("steps") or []) if s.get("action") in ACTIONS][:8], "outdir": str(r.get("outdir") or "").strip()})
+                      "steps": [s for s in (r.get("steps") or []) if _is_step(s.get("action"))][:12], "outdir": str(r.get("outdir") or "").strip()})
     _cfg_path().parent.mkdir(parents=True, exist_ok=True)
     tmp = _cfg_path().with_suffix(".tmp")
     tmp.write_text(json.dumps(clean, indent=1), encoding="utf-8")
