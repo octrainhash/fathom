@@ -41,7 +41,14 @@ def _open_pdf(src: Path, password: str = ""):
     from app.convert.eng_docs import get_fitz
 
     fitz = get_fitz()
-    doc = fitz.open(str(src))
+    try:
+        if src.stat().st_size == 0:
+            raise ConvertError("This file is empty (0 bytes), so there is nothing to work on.")
+        doc = fitz.open(str(src))
+    except ConvertError:
+        raise
+    except Exception:
+        raise ConvertError("This PDF is damaged, or it is not really a PDF. Try opening it in another program first; if it opens there, use Lab > Repair files.")
     if doc.needs_pass and not doc.authenticate(password or ""):
         doc.close()
         raise ConvertError("This PDF is locked with a password. Remove the password first (Protect > PDF password).")

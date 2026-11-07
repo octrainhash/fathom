@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 APP_NAME = "Fathom"
-VERSION = "1.3.0"
+VERSION = "1.4.4"
 BRAND = "Fathom"
 
 

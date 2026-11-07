@@ -146,6 +146,10 @@ In **Convert**, open the sections on the left. Every setting has a hover tip, an
 * **Copy first.** When you only change the container (MP4 to MKV) and pick nothing that changes the picture, Fathom copies the video as it is, in seconds, and only re-makes the sound if you changed it. Choosing quality, size, frame rate, speed, turn, colours or the graphics card means the picture is re-encoded.
 * **Graphics card.** Fathom's built-in FFmpeg has no NVIDIA encoder. For the graphics-card option, install a full FFmpeg once (open `Fathom-Setup.vbs` > Problems and Fixes > graphics card, which uses winget) so it is on your PATH. Without one, or if the card cannot do the job, Fathom uses the processor.
 
+## Fathom 1.4.1
+
+- Installer self-repair (dead links, missing temp folder, stale program records), offline Python option, problem report, clearer messages for damaged PDFs.
+
 ## Fathom 1.4
 
 - Workflows and Watch folders can use any tool; presets on every tool page; Check redactions, Passport photo, Fit under a size; job-finished notification; "Open with Fathom" right-click menu.

@@ -781,6 +781,7 @@ def pdfa_start(paths, recursive, output, options) -> dict:
         raise UserError("PDF/A needs Ghostscript or LibreOffice on this PC. Open Problems and Fixes in Fathom Manager, or install LibreOffice (free), then try again.")
 
     def work(src, fmt, scratch, ctx):
+        _open_pdf(src)[1].close()          # damaged or fake PDFs get a plain message instead of a fake result
         dst = scratch / (src.stem + "-PDFA.pdf")
         if gs:
             cmd = [gs, "-dPDFA=%s" % level, "-dBATCH", "-dNOPAUSE", "-dQUIET", "-dNOOUTERSAVE", "-sColorConversionStrategy=RGB",

@@ -24,7 +24,7 @@ $placesFile = Join-Path (Join-Path $env:LOCALAPPDATA 'Fathom') 'places.txt'
 function Note-Place([string]$link, [string]$target) {
   try {
     New-Item -ItemType Directory -Path (Split-Path -Parent $placesFile) -Force -ErrorAction Stop | Out-Null
-    Add-Content -LiteralPath $placesFile -Value ($link + '|' + $target) -Encoding ASCII
+    Add-Content -LiteralPath $placesFile -Value ($link + '|' + $target) -Encoding ASCII -ErrorAction SilentlyContinue
   } catch {}
 }
 $custom = @{}

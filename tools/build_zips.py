@@ -21,7 +21,11 @@ def build(name: str, lite: bool) -> Path:
     target = OUT / name
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for p, rel in files():
-            z.write(p, "fathom/" + rel.as_posix())
+            if p.suffix.lower() in (".bat", ".cmd"):          # Windows needs CRLF here (with plain LF, labels can go missing)
+                import re
+                z.writestr("fathom/" + rel.as_posix(), re.sub(rb"\r?\n", b"\r\n", p.read_bytes()))
+            else:
+                z.write(p, "fathom/" + rel.as_posix())
         if lite:
             z.writestr("fathom/LITE", "")
     return target

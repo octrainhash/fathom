@@ -94,8 +94,10 @@ echo [3/8] The app is already in %DEST% (%SRC%). Leaving it there.
 rem ---- 4. the data folder (Python packages, models, results). Left behind as a link so nothing else has to change.
 echo [4/8] Moving Fathom's data (Python packages, models, saved results) ...
 if /i "%FATHOM_DATA%"=="default" goto :data_default
+rem a dead link (its folder was deleted) does not "exist": remove just the link first; fsutil below would need admin rights to see it
+if not exist "%OLDDATA%\" rmdir "%OLDDATA%" >nul 2>&1
 fsutil reparsepoint query "%OLDDATA%" >nul 2>&1
-if not errorlevel 1 goto :data_already_link
+if not errorlevel 1 goto :data_link_check
 goto :data_move
 
 :data_default
@@ -118,12 +120,19 @@ if not exist "%OLDDATA%\.moved-ok" goto :link_failed_restore
 del /f /q "%NEWDATA%\.moved-ok" >nul 2>&1
 goto :data_done
 
+:data_link_check
+rem a link whose real folder has been deleted looks fine but leads nowhere ("path not found" everywhere): make it again
+if exist "%OLDDATA%\" goto :data_already_link
+echo     The link to Fathom's data pointed to a folder that no longer exists. Making it again...
+rmdir "%OLDDATA%" >> "%LOG%" 2>&1
+goto :data_none
 :data_already_link
 echo     Fathom's data is already a link; leaving it alone.
 goto :data_done
 :data_none
 echo     No data folder yet (Fathom was never set up). Creating the link so it is set up in the chosen folder.
 if not exist "%NEWDATA%" mkdir "%NEWDATA%"
+if not exist "%OLDDATA%\" rmdir "%OLDDATA%" >nul 2>&1
 mklink /J "%OLDDATA%" "%NEWDATA%" >> "%LOG%" 2>&1
 :data_done
 

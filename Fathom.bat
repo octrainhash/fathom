@@ -12,6 +12,9 @@ set "SELF=%~f0"
 set "SELF_PS=%SELF:'=''%"
 set "PYURL=https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe"
 
+rem ---- Contingency: a link whose real folder was deleted ("path not found" everywhere). Remove the dead link so a fresh folder can be made.
+rem (needs no admin rights: a dead link does not "exist"; rmdir then removes only the link, and does nothing when there is no link)
+if not exist "%DATA%\" rmdir "%DATA%" >nul 2>&1
 if not exist "%DATA%" mkdir "%DATA%" >nul 2>&1
 
 rem ---- Is this really the whole, extracted folder? (Double-clicking Fathom.bat inside the zip would otherwise start an OLD copy.)
@@ -160,12 +163,27 @@ if exist "%DATA%\tmp" set "TMP=%DATA%\tmp"
 echo %date% %time% setup started from %APPDIR% >> "%BATLOG%"
 ver >> "%BATLOG%"
 
+rem ---- Contingencies before anything is installed (each one fixes a thing that stopped real setups)
+rem  a) a missing or broken temporary folder makes every download and installer fail with "path not found"
+if not exist "%TEMP%\" set "TEMP=%LOCALAPPDATA%\Temp"
+if not exist "%TEMP%\" mkdir "%TEMP%" >nul 2>&1
+if not exist "%TEMP%\" set "TEMP=%SystemRoot%\Temp"
+set "TMP=%TEMP%"
+rem  b) the links Fathom makes (Python, LibreOffice, ...) pointing at a folder that is gone: remove the dead ones, the installer remakes them
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $l=@(); foreach($b in $env:ProgramFiles,${env:ProgramFiles(x86)}){ foreach($n in 'Python312','LibreOffice','Calibre2','7-Zip','Ollama'){ $l+=Join-Path $b $n } }; $l+=Join-Path $env:LOCALAPPDATA 'Programs\Ollama'; $l+=Join-Path $env:LOCALAPPDATA 'Programs\Python\Python312'; foreach($p in $l){ if(Test-Path -LiteralPath $p -PathType Container){ continue }; $it=Get-Item -LiteralPath $p -Force; if($it -and ($it.Attributes -band [IO.FileAttributes]::ReparsePoint)){ [IO.Directory]::Delete($p); Add-Content -LiteralPath $env:BATLOG -Value ('removed dead link '+$p) } }" >nul 2>&1
+rem  c) not enough room on the system drive
+for /f "usebackq delims=" %%S in (`powershell -NoProfile -Command "[math]::Floor((Get-PSDrive ($env:SystemDrive.TrimEnd(':'))).Free/1MB)" 2^>nul`) do set "FREEMB=%%S"
+if defined FREEMB if %FREEMB% LSS 1500 echo WARNING: only %FREEMB% MB free on %SystemDrive%. Fathom needs about 1.5 GB for the first install. Free some space or choose another drive in the installer. >> "%BATLOG%"
+if defined FREEMB if %FREEMB% LSS 1500 echo Only %FREEMB% MB is free on %SystemDrive%. The install may fail; free some space if it does.
+
 rem ---- Fathom needs exactly Python 3.12 (its OCR engine does not support newer versions yet)
 set "PY="
 call :find_python
 if defined PY goto :have_python
 
 echo Python 3.12 was not found. Installing it now - about 25 MB...
+rem  no internet? A python-3.12.*-amd64.exe placed next to Fathom.bat or in Downloads is used instead of downloading
+for %%F in ("%APPDIR%\python-3.12*-amd64.exe" "%USERPROFILE%\Downloads\python-3.12*-amd64.exe") do if exist "%%~F" set "PYSETUP=%%~F" & goto :run_python_setup
 set "PYSETUP=%TEMP%\python-3.12.10-amd64.exe"
 if exist "%PYSETUP%" del /f /q "%PYSETUP%"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$ProgressPreference='SilentlyContinue'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri '%PYURL%' -OutFile '%PYSETUP%'" >> "%BATLOG%" 2>&1
@@ -183,6 +201,15 @@ goto :after_python_setup
 :run_python_setup
 start /wait "" "%PYSETUP%" /quiet InstallAllUsers=1 PrependPath=0 Include_launcher=1 InstallLauncherAllUsers=1 Include_pip=1 Include_tcltk=1 Include_test=0 Include_doc=0 Shortcuts=0
 echo Python installer finished with code %errorlevel% >> "%BATLOG%"
+set "PY="
+call :find_python
+if defined PY goto :after_python_setup
+rem ---- Python did not install for all users (old half-removed Python records make the installer think it is already there).
+rem      A per-user install is not affected by those records and needs no administrator rights, so try that first.
+echo Trying a Python install just for this user...
+echo trying per-user Python install >> "%BATLOG%"
+start /wait "" "%PYSETUP%" /quiet /log "%DATA%\python-install.log" InstallAllUsers=0 PrependPath=0 Include_launcher=0 Include_pip=1 Include_tcltk=1 Include_test=0 Include_doc=0 Shortcuts=0
+echo Python installer (per-user) finished with code %errorlevel% >> "%BATLOG%"
 set "PY="
 call :find_python
 if defined PY goto :after_python_setup
@@ -261,6 +288,10 @@ if exist "%ProgramFiles%\Python312\python.exe" set "PY=%ProgramFiles%\Python312\
 if defined PY exit /b 0
 if exist "%LocalAppData%\Programs\Python\Python312\python.exe" set "PY=%LocalAppData%\Programs\Python\Python312\python.exe"
 if defined PY exit /b 0
+if exist "%ProgramFiles(x86)%\Python312\python.exe" set "PY=%ProgramFiles(x86)%\Python312\python.exe"
+if defined PY exit /b 0
+for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "foreach($k in 'HKLM:\SOFTWARE\Python\PythonCore\3.12\InstallPath','HKCU:\SOFTWARE\Python\PythonCore\3.12\InstallPath'){$v=(Get-ItemProperty -LiteralPath $k -ErrorAction SilentlyContinue).'(default)'; if($v -and (Test-Path (Join-Path $v 'python.exe'))){Join-Path $v 'python.exe'; break}}" 2^>nul`) do set "PY=%%P"
+if defined PY exit /b 0
 rem updating an existing install: Fathom's own private Python is enough to run the setup
 if exist "%DATA%\installed-2.ok" if exist "%DATA%\venv\Scripts\python.exe" set "PY=%DATA%\venv\Scripts\python.exe"
 exit /b 0
@@ -284,10 +315,22 @@ echo Your installed Fathom still works, so it will start now.
 if not "%FATHOM_WIZARD%"=="1" pause
 goto :launch
 :failed_fresh
+call :make_report
 echo.
 echo Setup did not finish. The details are saved in:
 echo   %LOG%
 echo   %BATLOG%
-echo Send me those two files or a photo of this window and I will fix it.
+echo.
+echo A short problem report was also saved here (send it with the two files):
+echo   %REPORT%
+echo.
+echo If the problem is "Python", "path not found" or "already installed", open Fathom Setup again,
+echo choose Problems and Fixes and pick the matching fix. It repairs it by itself.
 if not "%FATHOM_WIZARD%"=="1" pause
 exit /b 1
+
+:make_report
+set "REPORT=%USERPROFILE%\Downloads\Fathom-problem-report.txt"
+if not exist "%USERPROFILE%\Downloads\" set "REPORT=%DATA%\Fathom-problem-report.txt"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $o=@(); $o+='Fathom problem report  '+(Get-Date); $o+='Windows: '+[Environment]::OSVersion.VersionString+'  64-bit: '+[Environment]::Is64BitOperatingSystem; $o+='User: '+$env:USERNAME; $o+='App folder: '+$env:APPDIR; $o+='Data folder: '+$env:DATA+'  exists: '+(Test-Path -LiteralPath $env:DATA); $o+='Temp folder: '+$env:TEMP+'  exists: '+(Test-Path -LiteralPath $env:TEMP); Get-PSDrive -PSProvider FileSystem | ForEach-Object { $o+=('Drive '+$_.Name+': free '+[math]::Round($_.Free/1GB,1)+' GB') }; foreach($p in 'C:\Program Files\Python312','C:\Program Files\LibreOffice','C:\Program Files\Calibre2','C:\Program Files\7-Zip'){ $i=Get-Item -LiteralPath $p -Force; $o+=($p+': '+$(if($i){ if($i.Attributes -band [IO.FileAttributes]::ReparsePoint){'link to '+($i.Target -join ',')+'  target exists: '+(Test-Path -LiteralPath ($i.Target|Select -First 1))}else{'folder'}}else{'missing'})) }; try{ $r=Invoke-WebRequest -UseBasicParsing -Uri 'https://www.python.org' -TimeoutSec 10; $o+='Internet to python.org: OK '+$r.StatusCode }catch{ $o+='Internet to python.org: FAILED '+$_.Exception.Message }; $o+=''; $o+='---- bat.log (last 60 lines)'; $o+=Get-Content -LiteralPath $env:BATLOG -Tail 60; $o+=''; $o+='---- python-install.log (errors)'; $o+=Select-String -LiteralPath (Join-Path $env:DATA 'python-install.log') -Pattern 'e000|error|0x8' | Select-Object -First 25 | ForEach-Object { $_.Line }; $o+=''; $o+='---- setup.log (last 60 lines)'; $o+=Get-Content -LiteralPath $env:LOG -Tail 60; Set-Content -LiteralPath $env:REPORT -Value $o -Encoding UTF8" >nul 2>&1
+exit /b 0
